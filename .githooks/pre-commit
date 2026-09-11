@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+#
+# Rominas API — pre-commit hook
+#
+# Lints (Pint, PER preset) and statically analyses (Larastan, level 6) the code
+# before each commit is created. Fixes from Pint are re-staged automatically;
+# a Larastan failure aborts the commit.
+#
+# This hook is versioned under .githooks/ so the whole team shares it, but git
+# only runs it once each clone points core.hooksPath here:
+#
+#     git config core.hooksPath .githooks
+#
+
+set -e
+
+# Staged PHP files only (Added, Copied, Modified, Renamed).
+STAGED_PHP="$(git diff --cached --name-only --diff-filter=ACMR -- '*.php')"
+
+if [ -z "$STAGED_PHP" ]; then
+    exit 0
+fi
+
+echo "→ Pint (PER) on staged PHP files"
+echo "$STAGED_PHP" | xargs vendor/bin/pint
+# Re-stage any formatting Pint applied so the commit includes the fixed code.
+echo "$STAGED_PHP" | xargs git add
+
+echo "→ Larastan (level 6)"
+vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+echo "✓ pre-commit checks passed"
