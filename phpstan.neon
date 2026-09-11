@@ -7,4 +7,9 @@ parameters:
     paths:
         - app
 
+    # Barryvdh ide-helper model stubs — provide model property/method types so the
+    # `@mixin IdeHelper*` tags resolve. Regenerate with `php artisan ide-helper:models`.
+    scanFiles:
+        - _ide_helper_models.php
+
     tmpDir: build/phpstan

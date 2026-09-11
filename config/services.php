@@ -35,4 +35,18 @@ return [
         ],
     ],
 
+    // Base URL of the frontend SPA — used to build magic-link / voting-link targets.
+    'frontend' => [
+        'url' => env('FRONTEND_URL', 'http://localhost:3000'),
+    ],
+
+    // Brevo transactional email (Rominas\Delivery\Brevo\BrevoMailService). SMTP is the
+    // active transport by default; enable the Brevo blocks in config/delivery.php and
+    // AppServiceProvider to switch to it.
+    'brevo' => [
+        'api_key' => env('BREVO_API_KEY'),
+        'from_email' => env('BREVO_FROM_EMAIL'),
+        'from_name' => env('BREVO_FROM_NAME'),
+    ],
+
 ];
