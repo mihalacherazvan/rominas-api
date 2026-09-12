@@ -17,6 +17,9 @@ Route::post('/logout', [AuthController::class, 'logout'])
 // ---------------------------------------------------------------------------
 Route::prefix('/academy')->name('api.academy.')->group(__DIR__ . '/api/academy/auth.php');
 
+Route::middleware('auth:member')->prefix('/academy')->name('api.academy.')
+    ->group(__DIR__ . '/api/academy/nominations.php');
+
 // ---------------------------------------------------------------------------
 // Admin / management API (Sanctum-guarded, per-concern files under routes/api/admin/).
 // ---------------------------------------------------------------------------

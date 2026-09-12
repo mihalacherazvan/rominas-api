@@ -6,9 +6,11 @@ namespace App\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Rominas\Catalog\Enums\NomineeType;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,7 +33,26 @@ class AppServiceProvider extends ServiceProvider
             static fn(string $modelName): string => 'Database\\Factories\\' . class_basename($modelName) . 'Factory',
         );
 
+        $this->configureMorphMap();
         $this->configureRateLimiting();
+    }
+
+    /**
+     * Map polymorphic `nominee` relations to the stable NomineeType slugs (`artist`, `band`, …)
+     * instead of class FQNs, keeping DB rows and API payloads decoupled from PHP namespaces —
+     * consistent with NomineeType's slug-backed design. Uses morphMap (merge), NOT enforceMorphMap:
+     * only the Catalog nominees are aliased; other morphs (Sanctum tokenable, Spatie model_has_roles)
+     * keep storing their class name as before.
+     */
+    private function configureMorphMap(): void
+    {
+        $map = [];
+
+        foreach (NomineeType::cases() as $type) {
+            $map[$type->value] = $type->modelClass();
+        }
+
+        Relation::morphMap($map);
     }
 
     /**

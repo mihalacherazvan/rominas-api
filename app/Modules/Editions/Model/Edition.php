@@ -9,7 +9,9 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
+use Rominas\Categories\Model\Category;
 use Rominas\Editions\Enums\EditionStatus;
 use Rominas\Editions\Policies\EditionPolicy;
 use Rominas\Editions\QueryBuilders\EditionQueryBuilder;
@@ -70,5 +72,13 @@ class Edition extends Model
     public function newEloquentBuilder($query): EditionQueryBuilder
     {
         return new EditionQueryBuilder($query);
+    }
+
+    /**
+     * @return HasMany<Category, $this>
+     */
+    public function categories(): HasMany
+    {
+        return $this->hasMany(Category::class);
     }
 }

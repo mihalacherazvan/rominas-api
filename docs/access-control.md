@@ -54,6 +54,27 @@ Academy members are **passwordless** and log in via a **guard-agnostic** magic-l
 
 Admin roster CRUD lives under `/api/admin/members` (the `members` permission).
 
+## 2c. Ranked nominations (the `Nomination` module)
+
+Authenticated members (guard `member`) rank nominees per category. Ownership is implicit — every
+endpoint operates on the caller's own ballot for the single active edition; there is no Spatie policy.
+`app/Modules/Academy/Nomination/`:
+
+- `GET /api/academy/nominations` — the whole ballot: every category of the active edition with the
+  member's current picks (a synthesized empty draft when none is saved yet; **read-only**, allowed
+  even when the window is closed).
+- `PUT /api/academy/nominations/categories/{category}` — save/replace up to 5 ranked nominee ids for
+  one category (array order = rank). The save/resume unit; creates the draft on first save.
+- `POST /api/academy/nominations/submit` — finalize; requires **every** category to hold exactly 5
+  picks, then locks the ballot (`submitted`, terminal for the window).
+
+**Deadline gate** (`ResolveOpenNominationEditionAction`): save/submit are allowed only while the
+active edition's `status == nominations_open` **and** now ∈ `[nominations_start_at,
+nominations_end_at]`. This is the first feature to read the edition datetimes (see
+[edition-lifecycle.md](edition-lifecycle.md) §3). **Nominee pool** = the full Catalog of the
+category's `nominee_type`; each id is validated to exist in that type's table. Rankings store `rank`
+only — the points curve is deferred to `Scoring`.
+
 ## 2. Admin login (the `Auth` module)
 
 `POST /api/authenticate` (`Auth\Controllers\AuthController::authenticate`, `AuthenticateRequest`):

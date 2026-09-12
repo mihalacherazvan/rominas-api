@@ -15,7 +15,7 @@ picture stays complete. Keep this file in sync whenever an entity is added or ch
 | [Editions](#editions) | Edition | Yearly award edition + lifecycle |
 | [Categories](#categories) | Category | Award categories, scoped to an edition |
 | [Catalog](#catalog) | Artist, Band, Venue, Song, Album | Nominatable entities |
-| [Academy](#academy) | Member | Academy participant accounts (passwordless) |
+| [Academy](#academy) | Member, Nomination, NominationRanking | Participant accounts + ranked nominations |
 | [Behavioural modules](#behavioural-modules-no-persistent-entities) (`Auth`, `Delivery`, `Shared`) | MagicLinkToken | Behaviour + the magic-link token store |
 
 ```mermaid
@@ -202,14 +202,20 @@ scoping). The `NomineeType` enum (see [Categories](#categories)) maps its slugs 
 
 ## Academy
 
-Academy-member accounts and their passwordless auth. A **Member** is a participant account on its
-own `member` Sanctum guard (never the admin `web` guard); members log in via magic link. Admins
-manage the roster; invitations are emailed when an edition enters `invitations_sent`. Ranked
-nominations, member proposals and the voting shortlist are planned (see the table below).
+Academy-member accounts, their passwordless auth, and their **ranked nominations**. A **Member** is a
+participant account on its own `member` Sanctum guard (never the admin `web` guard); members log in
+via magic link. Admins manage the roster; invitations are emailed when an edition enters
+`invitations_sent`. Members then rank nominees per category. Member proposals and the voting
+shortlist are still planned (see the table below).
 
 ```mermaid
 erDiagram
     MEMBER ||--o{ MAGIC_LINK_TOKEN : "authenticates via (email, guard=member)"
+    MEMBER ||--o{ NOMINATION : "ballots"
+    EDITION ||--o{ NOMINATION : "scopes"
+    NOMINATION ||--o{ NOMINATION_RANKING : "ranked picks"
+    CATEGORY ||--o{ NOMINATION_RANKING : "within"
+    NOMINATION_RANKING }o--|| CATALOG : "nominee (morph by NomineeType slug)"
 ```
 
 **Member** — `app/Modules/Academy/Member/Model/Member.php`
@@ -228,8 +234,37 @@ gates admin-side CRUD on the `members` permission. `MemberQueryBuilder` adds sea
 `filterByStatus()`. A member becomes `active` on first magic-link verify; `suspended` members are
 barred from logging in. Full auth story in [access-control.md](access-control.md).
 
+**Nomination** — `app/Modules/Academy/Nomination/Model/Nomination.php` — a member's ballot for one
+edition (one row per member+edition).
+
+| Field | Notes |
+| --- | --- |
+| `member_id` | FK → Member (`cascadeOnDelete`) |
+| `edition_id` | FK → Edition (`cascadeOnDelete`) |
+| `status` | `NominationStatus` enum — `draft` \| `submitted` |
+| `submitted_at` | nullable; set when finalized |
+
+Unique `(member_id, edition_id)`. `belongsTo` Member/Edition, `hasMany` rankings.
+
+**NominationRanking** — `app/Modules/Academy/Nomination/Model/NominationRanking.php` — one ranked pick.
+
+| Field | Notes |
+| --- | --- |
+| `nomination_id` | FK → Nomination (`cascadeOnDelete`) |
+| `category_id` | FK → Category (`cascadeOnDelete`) |
+| `rank` | tinyint, 1 = top (order → points, later, in `Scoring`) |
+| `nominee_type` | `NomineeType` enum slug — the polymorphic morph alias |
+| `nominee_id` | the Catalog row id |
+
+Unique `(nomination_id, category_id, rank)` and `(nomination_id, category_id, nominee_type,
+nominee_id)`. `nominee()` is a `morphTo` resolved via the **morph map** (`AppServiceProvider`, mapping
+each `NomineeType` slug → its Catalog model, so nominee rows store the slug not a FQN). Members rank
+from the **full Catalog** of the category's type; gating (open window) and the submit rule (every
+category has exactly 5) live in the Nomination actions — see the Academy nominations flow in
+[access-control.md](access-control.md#2c-ranked-nominations-the-nomination-module).
+
 **MagicLinkToken** — `app/Modules/Auth/MagicLink/Model/MagicLinkToken.php` (guard-agnostic; see the
-Behavioural modules note). The nominee↔category nomination entities are **not** modelled yet.
+Behavioural modules note).
 
 ---
 
@@ -255,7 +290,7 @@ Tracked in the ecosystem [`CLAUDE.md`](../../CLAUDE.md); each gets its own secti
 
 | Module | Planned entities / concern |
 | --- | --- |
-| `Academy` (remaining) | Ranked `Nomination`s (5/category, order = points, save/resume, deadline), member proposals, and the per-category **nominee shortlist** that advances to public voting. (`Member` + magic-link auth + invitations are **built** — see [Academy](#academy).) |
+| `Academy` (remaining) | Member proposals, and the per-category **nominee shortlist** that advances to public voting. (`Member` + magic-link auth + invitations + ranked `Nomination`s are **built** — see [Academy](#academy).) |
 | `CriticsChoice` | `Critic` (separate authenticatable + guard), committee submissions |
 | `Voting` | Accountless public voting — pseudonymized hashed-email + single-use signed link; multi-step ballot; one submission per person |
 | `Scoring` | Ranking→points rules; academy 60% / public 40% weighting; points-per-rank curve |
