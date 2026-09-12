@@ -40,11 +40,14 @@ The enum owns the rules:
 `TransitionEditionAction` checks `$edition->status->canTransitionTo($target)` — an illegal move
 throws a `ValidationException` (**422**). On success it sets and saves the new status.
 
-> **Side-effects are deferred.** Today a transition only moves the status column. The cross-module
-> hooks each transition will eventually fire — issuing academy invitations on `invitations_sent`,
-> generating the per-category nominee shortlist on `nominations_closed`, opening the public ballot on
-> `voting_open`, locking results for the custodian on `committee_review`, publishing on
-> `results_published` — land with the `Academy` / `Voting` / `Results` modules.
+> **Transitions now emit an event.** `TransitionEditionAction` fires `EditionTransitioned`
+> (`Editions/Events/`) after saving; cross-module listeners hang off it (wired in `EventServiceProvider`).
+> The first is **live**: entering `invitations_sent` sends academy magic-link invitations
+> (`Academy\Listeners\SendAcademyInvitationsOnEditionTransitioned`, see
+> [access-control.md](access-control.md)). The remaining hooks — generating the per-category nominee
+> shortlist on `nominations_closed`, opening the public ballot on `voting_open`, locking results for
+> the custodian on `committee_review`, publishing on `results_published` — land with the `Voting` /
+> `Results` modules.
 
 ## 3. The timeline (six datetimes, strictly ordered)
 

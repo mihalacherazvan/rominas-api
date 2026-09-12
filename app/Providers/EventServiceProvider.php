@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Rominas\Academy\Listeners\SendAcademyInvitationsOnEditionTransitioned;
+use Rominas\Editions\Events\EditionTransitioned;
 
 /**
  * Explicit event→listener wiring. Module listeners live under `app/Modules`, which Laravel's
@@ -13,7 +15,11 @@ use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvi
 class EventServiceProvider extends ServiceProvider
 {
     /**
-     * @var array<class-string, array<int, string>>
+     * @var array<class-string, array<int, class-string>>
      */
-    protected $listen = [];
+    protected $listen = [
+        EditionTransitioned::class => [
+            SendAcademyInvitationsOnEditionTransitioned::class,
+        ],
+    ];
 }

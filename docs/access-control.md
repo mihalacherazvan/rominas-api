@@ -16,13 +16,43 @@ authenticatable model + one Sanctum guard per population**, never a single `user
 | Population | Model | Guard | Auth method | Status |
 | --- | --- | --- | --- | --- |
 | Admin / management | `Rominas\Users\Model\User` | `web` (sanctum default) | username + password → token | **built** |
-| Academy member | `Member` | `member` | magic link / OTP | planned (`Academy`) |
-| Critic | `Critic` | `critic` | magic link / OTP | planned (`CriticsChoice`) |
+| Academy member | `Rominas\Academy\Member\Model\Member` | `member` | magic link | **built** (`Academy`) |
+| Critic | `Critic` | `critic` | magic link | planned (`CriticsChoice`) |
 | Public voter | — (no account) | — | single-use signed link | planned (`Voting`) |
 
-`config/auth.php` currently defines the default `web`/sanctum guard over the `users` provider
-(`Rominas\Users\Model\User`). Each planned participant guard gets its own provider so a token minted
-for one population is rejected by another (Sanctum scopes acceptance to the guard's provider model).
+`config/auth.php` defines the default `web`/sanctum guard over the `users` provider
+(`Rominas\Users\Model\User`) and the `member`/sanctum guard over the `members` provider
+(`Rominas\Academy\Member\Model\Member`). Each participant guard has its own provider so a token minted
+for one population is rejected by another (Sanctum scopes acceptance to the guard's provider model);
+this is verified by test — an admin `User` token is rejected by `auth:member`.
+
+## 2b. Member magic-link login (the `Auth\MagicLink` primitive + `Academy`)
+
+Academy members are **passwordless** and log in via a **guard-agnostic** magic-link mechanism in
+`app/Modules/Auth/MagicLink/` (reusable by future participant guards such as `critic`):
+
+1. `POST /api/academy/auth/magic/request` (`throttle:magic-request`, `MemberAuthController::requestLink`)
+   queues `SendMagicLinkJob('member', email, 'academy-magic-link-email')`. Always **200** — the
+   system is **closed** (a link is only actually issued to a known member), so the response never
+   leaks whether the address exists.
+2. `SendMagicLinkAction` resolves the account through the guard's own auth provider, stores a hashed
+   `Str::random(48)` token in `magic_link_tokens` (composite PK `(email, guard)`, 15-min TTL, 60s
+   resend cooldown), and sends the email via the `Delivery` pipeline.
+3. `POST /api/academy/auth/magic/verify` (`MemberAuthController::verify`) → `VerifyMagicLinkAction`
+   validates + **consumes** the token (single-use), returns the `Member`; the controller activates it
+   (`status = active`, marks the email verified) and mints `createToken($email, ['member'])`. Response
+   `{ memberId, token }`, or **422** on an invalid/expired/consumed token, unknown email, or a
+   `suspended` member.
+4. Authenticated member endpoints run under `auth:member`: `GET /api/academy/me`, `POST /api/academy/logout`.
+
+**Invitations** run both automatically and on demand, via one shared `SendAcademyInvitationsAction`
+(sends the `academy-invitation-email` magic link to every `invited` member):
+- **Automatic** — `TransitionEditionAction` fires an `EditionTransitioned` event; the `Academy`
+  listener (wired in `EventServiceProvider`) runs the action when an edition enters `invitations_sent`.
+- **On demand** — `POST /api/admin/members/invitations` (bulk, returns the count invited) and
+  `POST /api/admin/members/{member}/invite` (single member).
+
+Admin roster CRUD lives under `/api/admin/members` (the `members` permission).
 
 ## 2. Admin login (the `Auth` module)
 
@@ -48,8 +78,9 @@ Authorization is [spatie/laravel-permission](https://spatie.be/docs/laravel-perm
 **Custodian is a role, not a user type** — a custodian is an admin with the extra right to view/export
 final results (that gate lands with the `Results` module).
 
-**Permissions** (`PermissionSeeder`) are resource-named: `editions`, `categories`, `artists`,
-`bands`, `venues`, `songs`, `albums`, `taxonomies`, `taxonomyTerms` (plus `roles`, `permissions`).
+**Permissions** (`PermissionSeeder`) are resource-named: `editions`, `categories`, `members`,
+`artists`, `bands`, `venues`, `songs`, `albums`, `taxonomies`, `taxonomyTerms` (plus `roles`,
+`permissions`).
 The `admin` role is granted the domain set; `super_admin` needs none (it bypasses — §5).
 User/role/permission management is currently `super_admin`-only. Regenerate/extend the set as
 modules land.
@@ -113,8 +144,7 @@ control (e.g. per-role user management) when needed.
 
 ## Planned populations
 
-- **Academy member / Critic** — separate authenticatable models + Sanctum guards, sharing one
-  **guard-agnostic magic-link/OTP mechanism** (hashed-token tables + Actions + queued Job envelopes,
-  reusing the `Delivery` module). Built alongside the `Academy` module.
+- **Critic** — a separate authenticatable model + `critic` Sanctum guard, reusing the same
+  guard-agnostic magic-link mechanism (§2b) by passing `'critic'`. Built with the `CriticsChoice` module.
 - **Public voter** — no account: a pseudonymized hashed-email record + a single-use, signed,
   expiring link. Built with the `Voting` module.

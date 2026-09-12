@@ -6,6 +6,7 @@ namespace Rominas\Editions\Actions;
 
 use Illuminate\Validation\ValidationException;
 use Rominas\Editions\Enums\EditionStatus;
+use Rominas\Editions\Events\EditionTransitioned;
 use Rominas\Editions\Model\Edition;
 
 class TransitionEditionAction
@@ -18,8 +19,12 @@ class TransitionEditionAction
             ]);
         }
 
+        $from = $edition->status;
+
         $edition->status = $target;
         $edition->save();
+
+        EditionTransitioned::dispatch($edition, $from, $target);
 
         return $edition;
     }

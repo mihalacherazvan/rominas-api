@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Rominas\Delivery\SMTP\SmtpAcademyInvitationEmailPayloadFactory;
+use Rominas\Delivery\SMTP\SmtpAcademyMagicLinkEmailPayloadFactory;
 use Rominas\Delivery\SMTP\SmtpExampleNotificationPayloadFactory;
 use Rominas\Delivery\SMTP\SmtpMagicLinkEmailPayloadFactory;
 use Rominas\Delivery\SMTP\SmtpMailService;
@@ -28,6 +30,8 @@ return [
                 // action key => payload factory
                 'example-notification' => SmtpExampleNotificationPayloadFactory::class,
                 'magic-link-email' => SmtpMagicLinkEmailPayloadFactory::class,
+                'academy-invitation-email' => SmtpAcademyInvitationEmailPayloadFactory::class,
+                'academy-magic-link-email' => SmtpAcademyMagicLinkEmailPayloadFactory::class,
             ],
         ],
 

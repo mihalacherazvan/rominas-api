@@ -20,6 +20,7 @@ class PermissionSeeder extends Seeder
     private const PERMISSIONS = [
         'editions',
         'categories',
+        'members',
         'artists',
         'bands',
         'venues',

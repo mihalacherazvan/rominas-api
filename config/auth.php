@@ -1,5 +1,6 @@
 <?php
 
+use Rominas\Academy\Member\Model\Member;
 use Rominas\Users\Model\User;
 
 return [
@@ -42,6 +43,14 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Academy member accounts. Token-only (Sanctum): `auth:member` accepts a bearer token
+        // whose tokenable is a Member and rejects admin User tokens (Sanctum scopes acceptance to
+        // the guard's provider model). Members log in passwordlessly via magic link.
+        'member' => [
+            'driver' => 'sanctum',
+            'provider' => 'members',
+        ],
     ],
 
     /*
@@ -65,6 +74,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'members' => [
+            'driver' => 'eloquent',
+            'model' => env('AUTH_MEMBER_MODEL', Member::class),
         ],
 
         // 'users' => [

@@ -35,9 +35,11 @@ return [
         ],
     ],
 
-    // Base URL of the frontend SPA — used to build magic-link / voting-link targets.
+    // Base URLs of the frontend SPAs — used to build magic-link / voting-link targets.
+    // `academy_url` targets the Academy dashboard; it falls back to `url` when unset.
     'frontend' => [
         'url' => env('FRONTEND_URL', 'http://localhost:3000'),
+        'academy_url' => env('FRONTEND_ACADEMY_URL'),
     ],
 
     // Brevo transactional email (Rominas\Delivery\Brevo\BrevoMailService). SMTP is the

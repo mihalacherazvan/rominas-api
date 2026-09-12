@@ -13,6 +13,11 @@ Route::post('/logout', [AuthController::class, 'logout'])
     ->name('api.logout');
 
 // ---------------------------------------------------------------------------
+// Academy member-facing API (passwordless magic-link auth on the `member` guard).
+// ---------------------------------------------------------------------------
+Route::prefix('/academy')->name('api.academy.')->group(__DIR__ . '/api/academy/auth.php');
+
+// ---------------------------------------------------------------------------
 // Admin / management API (Sanctum-guarded, per-concern files under routes/api/admin/).
 // ---------------------------------------------------------------------------
 Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group(function (): void {
@@ -24,6 +29,7 @@ Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group
 
     Route::prefix('/editions')->name('editions.')->group(__DIR__ . '/api/admin/editions.php');
     Route::prefix('/categories')->name('categories.')->group(__DIR__ . '/api/admin/categories.php');
+    Route::prefix('/members')->name('members.')->group(__DIR__ . '/api/admin/members.php');
 
     Route::prefix('/artists')->name('artists.')->group(__DIR__ . '/api/admin/artists.php');
     Route::prefix('/bands')->name('bands.')->group(__DIR__ . '/api/admin/bands.php');

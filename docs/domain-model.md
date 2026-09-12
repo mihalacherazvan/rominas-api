@@ -15,7 +15,8 @@ picture stays complete. Keep this file in sync whenever an entity is added or ch
 | [Editions](#editions) | Edition | Yearly award edition + lifecycle |
 | [Categories](#categories) | Category | Award categories, scoped to an edition |
 | [Catalog](#catalog) | Artist, Band, Venue, Song, Album | Nominatable entities |
-| [Behavioural modules](#behavioural-modules-no-persistent-entities) (`Auth`, `Delivery`, `Shared`) | — | Behaviour only |
+| [Academy](#academy) | Member | Academy participant accounts (passwordless) |
+| [Behavioural modules](#behavioural-modules-no-persistent-entities) (`Auth`, `Delivery`, `Shared`) | MagicLinkToken | Behaviour + the magic-link token store |
 
 ```mermaid
 erDiagram
@@ -199,10 +200,47 @@ scoping). The `NomineeType` enum (see [Categories](#categories)) maps its slugs 
 
 ---
 
+## Academy
+
+Academy-member accounts and their passwordless auth. A **Member** is a participant account on its
+own `member` Sanctum guard (never the admin `web` guard); members log in via magic link. Admins
+manage the roster; invitations are emailed when an edition enters `invitations_sent`. Ranked
+nominations, member proposals and the voting shortlist are planned (see the table below).
+
+```mermaid
+erDiagram
+    MEMBER ||--o{ MAGIC_LINK_TOKEN : "authenticates via (email, guard=member)"
+```
+
+**Member** — `app/Modules/Academy/Member/Model/Member.php`
+
+| Field | Notes |
+| --- | --- |
+| `name` | required |
+| `email` | unique |
+| `status` | `MemberStatus` enum — `invited` \| `active` \| `suspended` |
+| `email_verified_at` | nullable; set on first magic-link login |
+| `invited_at` | nullable; set when an invitation is sent |
+| `activated_at` | nullable; set on first successful login |
+
+Authenticatable (`HasApiTokens`, `Notifiable`); **passwordless** (no password column). `#[UsePolicy(MemberPolicy)]`
+gates admin-side CRUD on the `members` permission. `MemberQueryBuilder` adds search/sort +
+`filterByStatus()`. A member becomes `active` on first magic-link verify; `suspended` members are
+barred from logging in. Full auth story in [access-control.md](access-control.md).
+
+**MagicLinkToken** — `app/Modules/Auth/MagicLink/Model/MagicLinkToken.php` (guard-agnostic; see the
+Behavioural modules note). The nominee↔category nomination entities are **not** modelled yet.
+
+---
+
 ## Behavioural modules (no persistent entities)
 
 - **`Auth`** (`app/Modules/Auth/`) — admin username/password login → Sanctum token
-  (`POST /api/authenticate`), and logout. See [access-control.md](access-control.md).
+  (`POST /api/authenticate`), and logout (see [access-control.md](access-control.md)). Also hosts the
+  **guard-agnostic magic-link primitive** (`Auth/MagicLink/`): the `MagicLinkToken` model (table
+  `magic_link_tokens`, composite PK `(email, guard)`, hashed single-use token, 15-min TTL, 60s resend
+  cooldown) plus `SendMagicLinkAction`/`VerifyMagicLinkAction` (resolve the account through the
+  guard's own auth provider, so any participant guard reuses them) and a queued `SendMagicLinkJob`.
 - **`Delivery`** (`app/Modules/Delivery/`) — transactional email behind a transport seam
   (SMTP active; Brevo ported as an opt-in alternative). An `action → PayloadFactory → service`
   pipeline driven by `config/delivery.php`; no stored models.
@@ -217,7 +255,7 @@ Tracked in the ecosystem [`CLAUDE.md`](../../CLAUDE.md); each gets its own secti
 
 | Module | Planned entities / concern |
 | --- | --- |
-| `Academy` | `Member` (separate authenticatable + guard, magic-link/OTP), ranked `Nomination`s (5/category, order = points, save/resume, deadline), member proposals, and the per-category **nominee shortlist** that advances to public voting |
+| `Academy` (remaining) | Ranked `Nomination`s (5/category, order = points, save/resume, deadline), member proposals, and the per-category **nominee shortlist** that advances to public voting. (`Member` + magic-link auth + invitations are **built** — see [Academy](#academy).) |
 | `CriticsChoice` | `Critic` (separate authenticatable + guard), committee submissions |
 | `Voting` | Accountless public voting — pseudonymized hashed-email + single-use signed link; multi-step ballot; one submission per person |
 | `Scoring` | Ranking→points rules; academy 60% / public 40% weighting; points-per-rank curve |
