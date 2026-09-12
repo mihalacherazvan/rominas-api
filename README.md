@@ -1,58 +1,76 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Rominas API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Rominas** (Romanian Music Industry Awards) is a yearly, Grammy-like awards event for the Romanian
+music industry. Each **edition** runs a lifecycle from academy nominations through public voting to a
+final, committee-reviewed result set that is published and then archived.
 
-## About Laravel
+This repository — `rominas-api` — is the **Laravel backend** and the single source of truth for the
+whole domain: editions, categories, the nominatable catalog, academy nominations, public voting,
+scoring, results and access control all live here. It is the backbone for several audience-specific
+frontends:
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+| App | Role |
+| --- | --- |
+| **rominas-api** (this repo) | API-first Laravel backend; the only app that talks to the database |
+| Academy Dashboard | Academy members & critics — nominations (Next.js SPA, API client) |
+| Public Voting | General public, one-time link — the ballot (Next.js SPA, API client) |
+| Management Dashboard | Staff, admins, custodian — administration & monitoring (Next.js SPA, API client) |
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+The public presentation site is a separate WordPress project, out of scope for this repo.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Tech stack
 
-## Learning Laravel
+- **PHP 8.5 / Laravel 13**, API-first.
+- **Auth:** Laravel **Sanctum** (token-based); spatie/laravel-permission with wildcard permissions.
+  Admin login is username+password; participant (academy/critic) magic-link/OTP and accountless
+  public voting are planned.
+- **Messaging:** transactional email behind a transport seam (SMTP; Brevo opt-in).
+- **Testing:** Pest. **Quality:** Laravel Pint (PER), Larastan (level 6).
+- **Local dev:** Laravel Sail (MySQL 8.4).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Architecture — Modular DDD
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Self-contained modules under `app/Modules/<Module>/`, each namespaced `Rominas\<Module>\…`, ported
+and adapted from the `door` reference project. A module owns its `Model/`, `Actions/`,
+`DataTransferObjects/`, `Factories/`, `QueryBuilders/`, `Requests/`, `Resources/`, `Policies/` and
+`Controllers/`; controllers stay thin (input → Action → Resource). Larger areas split into
+per-entity submodules (e.g. `Catalog/Artist/…`). See [docs/architecture.md](docs/architecture.md).
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+| Module | Responsibility | Status |
+| --- | --- | --- |
+| `Users` / `Roles` / `Permissions` | Admin accounts + role/permission access control | built |
+| `Auth` | Sanctum admin login / logout | built |
+| `Taxonomies` | Reusable classification vocabulary (genre, region, tag) | built |
+| `Editions` | Yearly award editions + lifecycle | built |
+| `Categories` | Award categories, scoped to an edition, typed by nominee kind | built |
+| `Catalog` | Nominatable entities: artists, bands, venues, songs, albums | built |
+| `Delivery` | Transactional messaging (SMTP / Brevo) | built |
+| `Shared` | Cross-module query-builder concerns | built |
+| `Academy`, `CriticsChoice`, `Voting`, `Scoring`, `Results`, `FraudMonitoring`, `Audit` | Nominations, public voting, scoring, results, anti-fraud, audit | planned |
 
-## Agentic Development
+## Documentation
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Deeper documentation lives in [`docs/`](docs/README.md). Start with the
+[domain model](docs/domain-model.md) for every entity and its relationships, then
+[module architecture](docs/architecture.md), [access control & auth](docs/access-control.md) and the
+[edition lifecycle](docs/edition-lifecycle.md). Ecosystem-level decisions and open questions are
+tracked in the ecosystem [`CLAUDE.md`](../CLAUDE.md).
+
+## Getting started
+
+Local development uses **Laravel Sail**; run artisan/tests **inside the container** (the host PHP has
+no `pdo_mysql`).
 
 ```bash
-composer require laravel/boost --dev
+composer install
+cp .env.example .env && php artisan key:generate
+./vendor/bin/sail up -d                       # MySQL 8.4 + app container
+./vendor/bin/sail artisan migrate --seed      # schema + baseline roles/permissions
+./vendor/bin/sail artisan test                # Pest suite
 
-php artisan boost:install
+vendor/bin/pint                               # format (PER)
+vendor/bin/phpstan analyse                    # static analysis (Larastan level 6)
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+A versioned pre-commit hook lints (Pint) and analyses (Larastan) staged PHP; enable it once with
+`git config core.hooksPath .githooks`.
