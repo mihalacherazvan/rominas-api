@@ -44,7 +44,17 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Authenticate as a super_admin — the role bypasses every gate via Gate::before.
+ */
+function actingAsSuperAdmin(): \Rominas\Users\Model\User
 {
-    // ..
+    \Rominas\Roles\Model\Role::query()->firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+
+    $user = \Rominas\Users\Model\User::factory()->create();
+    $user->assignRole('super_admin');
+
+    \Laravel\Sanctum\Sanctum::actingAs($user);
+
+    return $user;
 }

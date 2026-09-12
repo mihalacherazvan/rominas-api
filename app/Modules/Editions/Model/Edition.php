@@ -1,0 +1,74 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Rominas\Editions\Model;
+
+use Database\Factories\EditionFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+use Rominas\Editions\Enums\EditionStatus;
+use Rominas\Editions\Policies\EditionPolicy;
+use Rominas\Editions\QueryBuilders\EditionQueryBuilder;
+
+/**
+ * @mixin IdeHelperEdition
+ */
+#[Fillable([
+    'name',
+    'slug',
+    'starts_at',
+    'nominations_start_at',
+    'nominations_end_at',
+    'voting_start_at',
+    'voting_end_at',
+    'ends_at',
+    'status',
+])]
+#[UsePolicy(EditionPolicy::class)]
+class Edition extends Model
+{
+    /** @use HasFactory<EditionFactory> */
+    use HasFactory;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'starts_at' => 'datetime',
+            'nominations_start_at' => 'datetime',
+            'nominations_end_at' => 'datetime',
+            'voting_start_at' => 'datetime',
+            'voting_end_at' => 'datetime',
+            'ends_at' => 'datetime',
+            'status' => EditionStatus::class,
+        ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(static function (Edition $edition): void {
+            if (empty($edition->slug)) {
+                $edition->slug = Str::slug($edition->name);
+            }
+        });
+    }
+
+    public static function query(): EditionQueryBuilder
+    {
+        /** @var EditionQueryBuilder $builder */
+        $builder = parent::query();
+
+        return $builder;
+    }
+
+    public function newEloquentBuilder($query): EditionQueryBuilder
+    {
+        return new EditionQueryBuilder($query);
+    }
+}

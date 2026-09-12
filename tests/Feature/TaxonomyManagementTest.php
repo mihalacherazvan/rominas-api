@@ -3,28 +3,12 @@
 declare(strict_types=1);
 
 use Laravel\Sanctum\Sanctum;
-use Rominas\Roles\Model\Role;
 use Rominas\Taxonomies\Model\Taxonomy;
 use Rominas\Users\Model\User;
 
 use function Pest\Laravel\deleteJson;
 use function Pest\Laravel\getJson;
 use function Pest\Laravel\postJson;
-
-/**
- * Authenticate as a super_admin — the role bypasses every gate via Gate::before.
- */
-function actingAsSuperAdmin(): User
-{
-    Role::create(['name' => 'super_admin', 'guard_name' => 'web']);
-
-    $user = User::factory()->create();
-    $user->assignRole('super_admin');
-
-    Sanctum::actingAs($user);
-
-    return $user;
-}
 
 it('lets a super_admin create a taxonomy', function (): void {
     actingAsSuperAdmin();

@@ -21,4 +21,13 @@ Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group
     Route::prefix('/users')->name('users.')->group(__DIR__ . '/api/admin/users.php');
     Route::prefix('/taxonomies')->name('taxonomies.')->group(__DIR__ . '/api/admin/taxonomies.php');
     Route::prefix('/taxonomy-terms')->name('taxonomy-terms.')->group(__DIR__ . '/api/admin/taxonomy-terms.php');
+
+    Route::prefix('/editions')->name('editions.')->group(__DIR__ . '/api/admin/editions.php');
+    Route::prefix('/categories')->name('categories.')->group(__DIR__ . '/api/admin/categories.php');
+
+    Route::prefix('/artists')->name('artists.')->group(__DIR__ . '/api/admin/artists.php');
+    Route::prefix('/bands')->name('bands.')->group(__DIR__ . '/api/admin/bands.php');
+    Route::prefix('/venues')->name('venues.')->group(__DIR__ . '/api/admin/venues.php');
+    Route::prefix('/songs')->name('songs.')->group(__DIR__ . '/api/admin/songs.php');
+    Route::prefix('/albums')->name('albums.')->group(__DIR__ . '/api/admin/albums.php');
 });
