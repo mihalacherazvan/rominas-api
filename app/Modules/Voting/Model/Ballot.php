@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Rominas\Editions\Model\Edition;
 use Rominas\Voting\Enums\BallotStatus;
 use Rominas\Voting\QueryBuilders\BallotQueryBuilder;
@@ -66,5 +67,13 @@ class Ballot extends Model
     public function edition(): BelongsTo
     {
         return $this->belongsTo(Edition::class);
+    }
+
+    /**
+     * @return HasMany<BallotRanking, $this>
+     */
+    public function rankings(): HasMany
+    {
+        return $this->hasMany(BallotRanking::class);
     }
 }

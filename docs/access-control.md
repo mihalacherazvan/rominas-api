@@ -18,7 +18,7 @@ authenticatable model + one Sanctum guard per population**, never a single `user
 | Admin / management | `Rominas\Users\Model\User` | `web` (sanctum default) | username + password → token | **built** |
 | Academy member | `Rominas\Academy\Member\Model\Member` | `member` | magic link | **built** (`Academy`) |
 | Critic | `Critic` | `critic` | magic link | planned (`CriticsChoice`) |
-| Public voter | — (no account) | — | single-use signed link | planned (`Voting`) |
+| Public voter | — (no account) | — (accountless) | single-use link token (no guard) | **built** (`Voting` §2f) |
 
 `config/auth.php` defines the default `web`/sanctum guard over the `users` provider
 (`Rominas\Users\Model\User`) and the `member`/sanctum guard over the `members` provider
@@ -106,6 +106,31 @@ not yet open); this same guard is the regeneration lock (re-running while `nomin
 the category's entries; once voting opens, the shortlist is frozen). `shortlists` is granted to `admin`
 in `PermissionSeeder`. See the [Shortlist](domain-model.md#shortlist) domain notes for the entity and
 the `Rominas\Scoring\RankPoints` points curve.
+
+## 2f. Public voting (the `Voting` module)
+
+Fully **accountless** — there is no guard, no Sanctum, no account. Possession of a one-time link token is
+the authorization, checked in application code. All endpoints are public (no auth middleware), mounted
+under `/api/voting` (mirroring the public `academy/auth.php` group):
+
+- `POST /api/voting/request` (`throttle:voting-request`) — request a link by email. Always a generic 200;
+  the response never reveals eligibility or prior voting. **One link, ever, per email per edition**
+  (a repeat request issues nothing). A closed voting window surfaces as a 422.
+- `GET /api/voting/ballot?token=…` — load the ballot the token authorizes: the edition's shortlist to
+  rank, grouped by category.
+- `POST /api/voting/ballot` — cast the ballot once (`{token, categories:[{category_id, nominees:[ids in
+  rank order]}]}`). Each included category must rank **all** its shortlisted nominees exactly once; ≥1
+  category required. On success the ranks are stored and the link is consumed (single-use, terminal).
+
+**Gating** mirrors the academy open-window pattern: `ResolveOpenVotingEditionAction` requires the active
+edition to be `voting_open` with now inside `[voting_start_at, voting_end_at]`. Token resolution
+(`ResolveBallotByTokenAction`) accepts only an `issued`, unexpired ballot and yields a single generic 422
+on any failure (missing / used / expired — no distinction), like the academy magic-link verify.
+
+**GDPR**: no plaintext personal data is stored. `email_hash`/`ip_hash` are HMAC-SHA256 (`VoterHasher`)
+keyed by `config('voting.pepper')` (env `VOTING_PEPPER`, falls back to `APP_KEY`) — the pepper must be set
+and never rotated once ballots exist. The link token is stored only as its SHA-256. See the
+[Voting](domain-model.md#voting) domain notes.
 
 ## 2. Admin login (the `Auth` module)
 
@@ -199,5 +224,5 @@ control (e.g. per-role user management) when needed.
 
 - **Critic** — a separate authenticatable model + `critic` Sanctum guard, reusing the same
   guard-agnostic magic-link mechanism (§2b) by passing `'critic'`. Built with the `CriticsChoice` module.
-- **Public voter** — no account: a pseudonymized hashed-email record + a single-use, signed,
-  expiring link. Built with the `Voting` module.
+
+(The **public voter** population is now **built** — see §2f.)

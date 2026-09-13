@@ -317,6 +317,59 @@ admin endpoints and `shortlists` permission are in [access-control.md](access-co
 
 ---
 
+## Voting
+
+Accountless public voting. A member of the public requests a one-time link by email, ranks the
+shortlisted nominees, and votes once. There is **no account and no guard** — possession of the (hashed)
+link token is the authorization, checked in application code. Personal data is pseudonymized: only HMAC
+hashes of the email and IP are stored (never plaintext), keyed by a stable `voting.pepper`
+(`config/voting.php`). Voting reads the [Shortlist](#shortlist) as the candidate set and stores ranks
+only; points/weighting are a later `Scoring`/`Results` concern.
+
+```mermaid
+erDiagram
+    EDITION ||--o{ BALLOT : "scopes"
+    BALLOT ||--o{ BALLOT_RANKING : "ranked votes"
+    CATEGORY ||--o{ BALLOT_RANKING : "within"
+    BALLOT_RANKING }o--|| CATALOG : "nominee (morph by NomineeType slug)"
+    SHORTLIST_ENTRY }o..|| CATEGORY : "candidate set the ballot ranks"
+```
+
+**Ballot** — `app/Modules/Voting/Model/Ballot.php` — one voter's ballot/identity/link for an edition.
+
+| Field | Notes |
+| --- | --- |
+| `edition_id` | FK → Edition (`cascadeOnDelete`) |
+| `email_hash` | HMAC-SHA256 of the normalized email — the pseudonymized identity (no plaintext) |
+| `token_hash` | SHA-256 of the single-use link token (**unique**); the plaintext token only leaves by email |
+| `status` | `BallotStatus` enum — `issued` \| `submitted` |
+| `expires_at` | link expiry (set to the edition's `voting_end_at`) |
+| `submitted_at` | nullable; set when the ballot is cast |
+| `ip_hash` | nullable; HMAC of the submitter IP, captured at submit for `FraudMonitoring` |
+
+Unique `(edition_id, email_hash)` → **one link, ever, per email per edition**. `belongsTo` Edition;
+`hasMany` rankings. `BallotQueryBuilder` adds `forEdition` / `byEmailHash` / `byTokenHash` / `issued`.
+`BallotStatus` is the lifecycle; `VoterHasher` (`Voting/Support/`) is the single pseudonymization helper.
+
+**BallotRanking** — `app/Modules/Voting/Model/BallotRanking.php` — one ranked vote (mirrors
+`NominationRanking`).
+
+| Field | Notes |
+| --- | --- |
+| `ballot_id` | FK → Ballot (`cascadeOnDelete`) |
+| `category_id` | FK → Category (`cascadeOnDelete`) |
+| `rank` | 1 = favourite (order → points, later, in `Scoring`) |
+| `nominee_type` | `NomineeType` enum slug — the polymorphic morph alias |
+| `nominee_id` | the Catalog row id (must be on that category's shortlist) |
+
+Unique `(ballot_id, category_id, rank)` and `(ballot_id, category_id, nominee_type, nominee_id)`.
+`nominee()` is a `morphTo` via the app-wide morph map. Casting a ballot is a one-shot atomic submit
+(`SubmitBallotAction`): each included category must rank **all** of its shortlisted nominees exactly once
+(a full 1→N ordering, N = the category's shortlist size), and ≥1 category is required. The endpoints and
+the accountless flow are in [access-control.md](access-control.md#2f-public-voting).
+
+---
+
 ## Behavioural modules (no persistent entities)
 
 - **`Auth`** (`app/Modules/Auth/`) — admin username/password login → Sanctum token
@@ -340,8 +393,7 @@ Tracked in the ecosystem [`CLAUDE.md`](../../CLAUDE.md); each gets its own secti
 | Module | Planned entities / concern |
 | --- | --- |
 | `CriticsChoice` | `Critic` (separate authenticatable + guard), committee submissions |
-| `Voting` | Accountless public voting — pseudonymized hashed-email + single-use signed link; multi-step ballot; one submission per person |
-| `Scoring` | Ranking→points rules; academy 60% / public 40% weighting; points-per-rank curve |
+| `Scoring` | Ranking→points rules; academy 60% / public 40% weighting; points-per-rank curve (the `RankPoints` curve is already seeded — see [Shortlist](#shortlist)) |
 | `Results` | Custodian-gated aggregation + export |
 | `FraudMonitoring` | Near-real-time vote monitoring; vote cancellation (reason required, audited) |
 | `Audit` | Audit trail across sensitive actions (greenfield — no `door` template) |
