@@ -22,6 +22,7 @@ class PermissionSeeder extends Seeder
         'categories',
         'members',
         'memberProposals',
+        'shortlists',
         'artists',
         'bands',
         'venues',

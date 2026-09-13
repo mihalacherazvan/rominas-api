@@ -6,6 +6,7 @@ namespace Rominas\Academy\Nomination\QueryBuilders;
 
 use Illuminate\Database\Eloquent\Builder;
 use Rominas\Academy\Member\Model\Member;
+use Rominas\Academy\Nomination\Enums\NominationStatus;
 use Rominas\Academy\Nomination\Model\Nomination;
 use Rominas\Editions\Model\Edition;
 
@@ -22,5 +23,10 @@ class NominationQueryBuilder extends Builder
     public function forEdition(Edition $edition): self
     {
         return $this->where('edition_id', '=', $edition->id);
+    }
+
+    public function submitted(): self
+    {
+        return $this->where('status', '=', NominationStatus::Submitted->value);
     }
 }

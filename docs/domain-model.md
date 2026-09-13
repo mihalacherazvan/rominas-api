@@ -205,8 +205,9 @@ scoping). The `NomineeType` enum (see [Categories](#categories)) maps its slugs 
 Academy-member accounts, their passwordless auth, and their **ranked nominations**. A **Member** is a
 participant account on its own `member` Sanctum guard (never the admin `web` guard); members log in
 via magic link. Admins manage the roster; invitations are emailed when an edition enters
-`invitations_sent`. Members then rank nominees per category. Member proposals and the voting
-shortlist are still planned (see the table below).
+`invitations_sent`. Members then rank nominees per category. Member proposals are handled here too;
+the per-category voting **shortlist** — generated on demand by admins once nominations close — is a
+sibling submodule ([Shortlist](#shortlist)).
 
 ```mermaid
 erDiagram
@@ -283,6 +284,37 @@ feeding the invitation flow. See [access-control.md](access-control.md#2d-member
 **MagicLinkToken** — `app/Modules/Auth/MagicLink/Model/MagicLinkToken.php` (guard-agnostic; see the
 Behavioural modules note).
 
+### Shortlist
+
+The bridge from academy nominations to public voting. Once nominations close, admins **generate** each
+category's shortlist — the top 5 nominees, by summed academy points — which becomes the frozen candidate
+list the public ballot ranks. Generation is an **explicit, on-demand admin action** (not an automatic
+side effect of the `nominations_closed` transition): per-category or bulk (all categories in the edition).
+It may run — and re-run, replacing prior entries — only while the edition is `nominations_closed`; once
+voting opens the shortlist is locked.
+
+Points use the confirmed academy curve, `points = 6 − rank` (rank 1 → 5 pts … rank 5 → 1), owned by
+`Rominas\Scoring\RankPoints::forRank()` (the seed of the future `Scoring` module, reused by Voting).
+Nominees are ordered points desc, ties broken by nominee id; genuine ties at the cutoff are settled by
+admins via the (planned) review/adjust flow.
+
+**ShortlistEntry** — `app/Modules/Academy/Shortlist/Model/ShortlistEntry.php` — one finalist on a
+category's shortlist.
+
+| Field | Notes |
+| --- | --- |
+| `edition_id` | FK → Edition (`cascadeOnDelete`) |
+| `category_id` | FK → Category (`cascadeOnDelete`) |
+| `nominee_type` | `NomineeType` enum slug — the polymorphic morph alias |
+| `nominee_id` | the Catalog row id |
+| `points` | nullable — summed academy points (null reserved for a future manually-added entry) |
+| `position` | 1 = top of the shortlist |
+
+Unique `(edition_id, category_id, nominee_type, nominee_id)` and `(edition_id, category_id, position)`.
+`belongsTo` Edition/Category; `nominee()` is a `morphTo` resolved through the morph map. Generation lives
+in `GenerateCategoryShortlistAction` (one category) and `GenerateEditionShortlistsAction` (bulk); the
+admin endpoints and `shortlists` permission are in [access-control.md](access-control.md#2e-nominee-shortlist).
+
 ---
 
 ## Behavioural modules (no persistent entities)
@@ -307,7 +339,6 @@ Tracked in the ecosystem [`CLAUDE.md`](../../CLAUDE.md); each gets its own secti
 
 | Module | Planned entities / concern |
 | --- | --- |
-| `Academy` (remaining) | The per-category **nominee shortlist** that advances to public voting (needs `Voting`). (`Member` + magic-link auth + invitations + ranked `Nomination`s + `MemberProposal`s are **built** — see [Academy](#academy).) |
 | `CriticsChoice` | `Critic` (separate authenticatable + guard), committee submissions |
 | `Voting` | Accountless public voting — pseudonymized hashed-email + single-use signed link; multi-step ballot; one submission per person |
 | `Scoring` | Ranking→points rules; academy 60% / public 40% weighting; points-per-rank curve |

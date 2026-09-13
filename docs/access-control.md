@@ -90,6 +90,23 @@ open anytime. `app/Modules/Academy/MemberProposal/`:
   **Approve creates an invited Member** from the proposal (reusing `CreateMemberAction`) and links it
   (`member_id`), so the new member flows into the invitation mechanism (§2b).
 
+## 2e. Nominee shortlist (the `Shortlist` module)
+
+Admin-only, `app/Modules/Academy/Shortlist/`. Generation is an **explicit admin action** (no
+`EditionTransitioned` listener). All routes are `auth:sanctum` and gated on the new `shortlists`
+permission via `ShortlistEntryPolicy` — checked against the `ShortlistEntry` class (`can:create,…` /
+`can:viewAny,…`), since the routes bind an `edition`/`category`, not a shortlist instance:
+
+- `GET  /api/admin/editions/{edition}/shortlist` — review the edition's generated shortlist.
+- `POST /api/admin/editions/{edition}/shortlist` — bulk-generate every category in the edition.
+- `POST /api/admin/editions/{edition}/categories/{category}/shortlist` — generate one category.
+
+Both generate endpoints **422** unless the edition is `nominations_closed` (nominations frozen, voting
+not yet open); this same guard is the regeneration lock (re-running while `nominations_closed` replaces
+the category's entries; once voting opens, the shortlist is frozen). `shortlists` is granted to `admin`
+in `PermissionSeeder`. See the [Shortlist](domain-model.md#shortlist) domain notes for the entity and
+the `Rominas\Scoring\RankPoints` points curve.
+
 ## 2. Admin login (the `Auth` module)
 
 `POST /api/authenticate` (`Auth\Controllers\AuthController::authenticate`, `AuthenticateRequest`):

@@ -34,6 +34,7 @@ Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group
     Route::prefix('/taxonomy-terms')->name('taxonomy-terms.')->group(__DIR__ . '/api/admin/taxonomy-terms.php');
 
     Route::prefix('/editions')->name('editions.')->group(__DIR__ . '/api/admin/editions.php');
+    Route::prefix('/editions')->name('editions.')->group(__DIR__ . '/api/admin/shortlist.php');
     Route::prefix('/categories')->name('categories.')->group(__DIR__ . '/api/admin/categories.php');
     Route::prefix('/members')->name('members.')->group(__DIR__ . '/api/admin/members.php');
     Route::prefix('/member-proposals')->name('member-proposals.')->group(__DIR__ . '/api/admin/member-proposals.php');
