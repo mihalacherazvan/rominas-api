@@ -15,7 +15,7 @@ picture stays complete. Keep this file in sync whenever an entity is added or ch
 | [Editions](#editions) | Edition | Yearly award edition + lifecycle |
 | [Categories](#categories) | Category | Award categories, scoped to an edition |
 | [Catalog](#catalog) | Artist, Band, Venue, Song, Album | Nominatable entities |
-| [Academy](#academy) | Member, Nomination, NominationRanking | Participant accounts + ranked nominations |
+| [Academy](#academy) | Member, Nomination, NominationRanking, MemberProposal | Participant accounts, ranked nominations, member proposals |
 | [Behavioural modules](#behavioural-modules-no-persistent-entities) (`Auth`, `Delivery`, `Shared`) | MagicLinkToken | Behaviour + the magic-link token store |
 
 ```mermaid
@@ -263,6 +263,23 @@ from the **full Catalog** of the category's type; gating (open window) and the s
 category has exactly 5) live in the Nomination actions — see the Academy nominations flow in
 [access-control.md](access-control.md#2c-ranked-nominations-the-nomination-module).
 
+**MemberProposal** — `app/Modules/Academy/MemberProposal/Model/MemberProposal.php` — a standing
+proposal, made by a member, to add a future academy member. Not edition-scoped (a running pool).
+
+| Field | Notes |
+| --- | --- |
+| `proposed_by_member_id` | FK → Member (`cascadeOnDelete`) — the proposer |
+| `name`, `email` | the proposed person |
+| `reason` | nullable — the proposer's justification |
+| `status` | `MemberProposalStatus` enum — `pending` \| `approved` \| `rejected` |
+| `member_id` | nullable FK → Member — the invited Member created on approval |
+| `reviewed_by_user_id` | nullable FK → User — the admin who reviewed |
+| `reviewed_at`, `review_note` | nullable — review metadata |
+
+Members submit/list/withdraw their own proposals (guard `member`, anytime); admins review under the
+`memberProposals` permission — **approving creates an invited Member** (reusing `CreateMemberAction`),
+feeding the invitation flow. See [access-control.md](access-control.md#2d-member-proposals).
+
 **MagicLinkToken** — `app/Modules/Auth/MagicLink/Model/MagicLinkToken.php` (guard-agnostic; see the
 Behavioural modules note).
 
@@ -290,7 +307,7 @@ Tracked in the ecosystem [`CLAUDE.md`](../../CLAUDE.md); each gets its own secti
 
 | Module | Planned entities / concern |
 | --- | --- |
-| `Academy` (remaining) | Member proposals, and the per-category **nominee shortlist** that advances to public voting. (`Member` + magic-link auth + invitations + ranked `Nomination`s are **built** — see [Academy](#academy).) |
+| `Academy` (remaining) | The per-category **nominee shortlist** that advances to public voting (needs `Voting`). (`Member` + magic-link auth + invitations + ranked `Nomination`s + `MemberProposal`s are **built** — see [Academy](#academy).) |
 | `CriticsChoice` | `Critic` (separate authenticatable + guard), committee submissions |
 | `Voting` | Accountless public voting — pseudonymized hashed-email + single-use signed link; multi-step ballot; one submission per person |
 | `Scoring` | Ranking→points rules; academy 60% / public 40% weighting; points-per-rank curve |

@@ -75,6 +75,21 @@ nominations_end_at]`. This is the first feature to read the edition datetimes (s
 category's `nominee_type`; each id is validated to exist in that type's table. Rankings store `rank`
 only — the points curve is deferred to `Scoring`.
 
+## 2d. Member proposals (the `MemberProposal` module)
+
+Members propose future academy members; admins review. A standing pool (not edition-scoped),
+open anytime. `app/Modules/Academy/MemberProposal/`:
+
+- **Member-facing** (guard `member`, implicit ownership): `POST /api/academy/proposals` (name, email,
+  optional reason), `GET /api/academy/proposals` (own only), `DELETE /api/academy/proposals/{proposal}`
+  (withdraw own pending). Creating rejects an email that is already a member or already has a pending
+  proposal.
+- **Admin-facing** (`auth:sanctum` + the `memberProposals` permission via `MemberProposalPolicy`):
+  `GET /api/admin/member-proposals` (filter `?status=`), `GET /{memberProposal}`,
+  `POST /{memberProposal}/approve`, `POST /{memberProposal}/reject` (both accept an optional `note`).
+  **Approve creates an invited Member** from the proposal (reusing `CreateMemberAction`) and links it
+  (`member_id`), so the new member flows into the invitation mechanism (§2b).
+
 ## 2. Admin login (the `Auth` module)
 
 `POST /api/authenticate` (`Auth\Controllers\AuthController::authenticate`, `AuthenticateRequest`):
@@ -100,8 +115,8 @@ Authorization is [spatie/laravel-permission](https://spatie.be/docs/laravel-perm
 final results (that gate lands with the `Results` module).
 
 **Permissions** (`PermissionSeeder`) are resource-named: `editions`, `categories`, `members`,
-`artists`, `bands`, `venues`, `songs`, `albums`, `taxonomies`, `taxonomyTerms` (plus `roles`,
-`permissions`).
+`memberProposals`, `artists`, `bands`, `venues`, `songs`, `albums`, `taxonomies`, `taxonomyTerms`
+(plus `roles`, `permissions`).
 The `admin` role is granted the domain set; `super_admin` needs none (it bypasses — §5).
 User/role/permission management is currently `super_admin`-only. Regenerate/extend the set as
 modules land.

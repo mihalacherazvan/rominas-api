@@ -20,6 +20,9 @@ Route::prefix('/academy')->name('api.academy.')->group(__DIR__ . '/api/academy/a
 Route::middleware('auth:member')->prefix('/academy')->name('api.academy.')
     ->group(__DIR__ . '/api/academy/nominations.php');
 
+Route::middleware('auth:member')->prefix('/academy')->name('api.academy.')
+    ->group(__DIR__ . '/api/academy/proposals.php');
+
 // ---------------------------------------------------------------------------
 // Admin / management API (Sanctum-guarded, per-concern files under routes/api/admin/).
 // ---------------------------------------------------------------------------
@@ -33,6 +36,7 @@ Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group
     Route::prefix('/editions')->name('editions.')->group(__DIR__ . '/api/admin/editions.php');
     Route::prefix('/categories')->name('categories.')->group(__DIR__ . '/api/admin/categories.php');
     Route::prefix('/members')->name('members.')->group(__DIR__ . '/api/admin/members.php');
+    Route::prefix('/member-proposals')->name('member-proposals.')->group(__DIR__ . '/api/admin/member-proposals.php');
 
     Route::prefix('/artists')->name('artists.')->group(__DIR__ . '/api/admin/artists.php');
     Route::prefix('/bands')->name('bands.')->group(__DIR__ . '/api/admin/bands.php');
