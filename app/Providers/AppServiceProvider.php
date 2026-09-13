@@ -130,5 +130,9 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('otp-login', static fn(Request $request): Limit => Limit::perMinute(10)
             ->by((string) $request->input('email') . '|' . $request->ip()));
+
+        // Public voting-link requests each send an email — throttle per email + IP.
+        RateLimiter::for('voting-request', static fn(Request $request): Limit => Limit::perMinute(5)
+            ->by((string) $request->input('email') . '|' . $request->ip()));
     }
 }

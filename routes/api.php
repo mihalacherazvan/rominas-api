@@ -24,6 +24,11 @@ Route::middleware('auth:member')->prefix('/academy')->name('api.academy.')
     ->group(__DIR__ . '/api/academy/proposals.php');
 
 // ---------------------------------------------------------------------------
+// Public voting API (accountless — a one-time link token authorizes the voter, no auth middleware).
+// ---------------------------------------------------------------------------
+Route::prefix('/voting')->name('api.voting.')->group(__DIR__ . '/api/voting/public.php');
+
+// ---------------------------------------------------------------------------
 // Admin / management API (Sanctum-guarded, per-concern files under routes/api/admin/).
 // ---------------------------------------------------------------------------
 Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group(function (): void {
