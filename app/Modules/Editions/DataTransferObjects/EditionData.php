@@ -16,5 +16,9 @@ class EditionData
         public Carbon $voting_start_at,
         public Carbon $voting_end_at,
         public Carbon $ends_at,
+        // Null = "not supplied on this request" → leave the edition's current weights untouched
+        // (create ignores these and falls back to the DB defaults 60/40).
+        public ?int $academy_vote_weight = null,
+        public ?int $public_vote_weight = null,
     ) {}
 }

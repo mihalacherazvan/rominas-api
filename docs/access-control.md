@@ -97,15 +97,19 @@ Admin-only, `app/Modules/Academy/Shortlist/`. Generation is an **explicit admin 
 permission via `ShortlistEntryPolicy` — checked against the `ShortlistEntry` class (`can:create,…` /
 `can:viewAny,…`), since the routes bind an `edition`/`category`, not a shortlist instance:
 
-- `GET  /api/admin/editions/{edition}/shortlist` — review the edition's generated shortlist.
-- `POST /api/admin/editions/{edition}/shortlist` — bulk-generate every category in the edition.
-- `POST /api/admin/editions/{edition}/categories/{category}/shortlist` — generate one category.
+- `GET  /api/admin/editions/{edition}/shortlist` — review the edition's generated shortlist (`can:viewAny`).
+- `POST /api/admin/editions/{edition}/shortlist` — bulk-generate every category in the edition (`can:create`).
+- `POST /api/admin/editions/{edition}/categories/{category}/shortlist` — generate one category (`can:create`).
+- `GET  /api/admin/editions/{edition}/categories/{category}/shortlist/candidates` — the full ranked
+  candidate pool (every academy-nominated nominee, ordered by points) for the manual review UI (`can:viewAny`).
+- `PUT  /api/admin/editions/{edition}/categories/{category}/shortlist` — the **manual adjust**: replace a
+  category's shortlist with the admin's final ordered nominees (≤ 5, distinct) (`can:update`).
 
-Both generate endpoints **422** unless the edition is `nominations_closed` (nominations frozen, voting
-not yet open); this same guard is the regeneration lock (re-running while `nominations_closed` replaces
-the category's entries; once voting opens, the shortlist is frozen). `shortlists` is granted to `admin`
-in `PermissionSeeder`. See the [Shortlist](domain-model.md#shortlist) domain notes for the entity and
-the `Rominas\Scoring\RankPoints` points curve.
+The generate and adjust write endpoints **422** unless the edition is `nominations_closed` (nominations
+frozen, voting not yet open); this same guard is the regeneration/adjust lock (re-running or adjusting
+while `nominations_closed` replaces the category's entries; once voting opens, the shortlist is frozen).
+`shortlists` is granted to `admin` in `PermissionSeeder`. See the [Shortlist](domain-model.md#shortlist)
+domain notes for the entity and the `Rominas\Scoring\RankPoints` points curve.
 
 ## 2f. Public voting (the `Voting` module)
 

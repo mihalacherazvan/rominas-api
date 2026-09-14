@@ -23,6 +23,8 @@ class EditionDataFactory
             voting_start_at: Carbon::parse($validated['voting_start_at']),
             voting_end_at: Carbon::parse($validated['voting_end_at']),
             ends_at: Carbon::parse($validated['ends_at']),
+            academy_vote_weight: isset($validated['academy_vote_weight']) ? (int) $validated['academy_vote_weight'] : null,
+            public_vote_weight: isset($validated['public_vote_weight']) ? (int) $validated['public_vote_weight'] : null,
         );
     }
 }

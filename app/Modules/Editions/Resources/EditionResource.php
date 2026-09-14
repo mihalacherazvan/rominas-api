@@ -33,6 +33,8 @@ class EditionResource extends JsonResource
             'ends_at' => $edition->ends_at,
             'status' => $edition->status->value,
             'status_label' => $edition->status->label(),
+            'academy_vote_weight' => $edition->academy_vote_weight,
+            'public_vote_weight' => $edition->public_vote_weight,
             'created_at' => $edition->created_at,
             'updated_at' => $edition->updated_at,
         ];

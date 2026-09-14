@@ -19,3 +19,12 @@ Route::post('/{edition}/shortlist', [ShortlistController::class, 'generateEditio
 Route::post('/{edition}/categories/{category}/shortlist', [ShortlistController::class, 'generateCategory'])
     ->name('shortlist.generate-category')
     ->middleware('can:create,' . ShortlistEntry::class);
+
+// The ranked candidate pool for the manual review UI, and the admin-curated final shortlist it submits.
+Route::get('/{edition}/categories/{category}/shortlist/candidates', [ShortlistController::class, 'candidates'])
+    ->name('shortlist.candidates')
+    ->middleware('can:viewAny,' . ShortlistEntry::class);
+
+Route::put('/{edition}/categories/{category}/shortlist', [ShortlistController::class, 'adjust'])
+    ->name('shortlist.adjust')
+    ->middleware('can:update,' . ShortlistEntry::class);

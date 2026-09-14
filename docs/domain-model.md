@@ -296,9 +296,11 @@ It may run — and re-run, replacing prior entries — only while the edition is
 voting opens the shortlist is locked.
 
 Points use the confirmed academy curve, `points = 6 − rank` (rank 1 → 5 pts … rank 5 → 1), owned by
-`Rominas\Scoring\RankPoints::forRank()` (the seed of the future `Scoring` module, reused by Voting).
-Nominees are ordered points desc, ties broken by nominee id; genuine ties at the cutoff are settled by
-admins via the (planned) review/adjust flow.
+`Rominas\Scoring\RankPoints::forRank()` (also used by the `Scoring` module, reused by Voting).
+Nominees are ordered points desc, ties broken by nominee id; genuine ties at the cutoff (and any other
+manual edit) are settled by admins via the **review/adjust flow**: `GET …/candidates` returns the full
+ranked candidate pool and `PUT …/shortlist` replaces a category's shortlist with the admin's final
+ordered nominees (see [access-control.md](access-control.md#2e-nominee-shortlist)).
 
 **ShortlistEntry** — `app/Modules/Academy/Shortlist/Model/ShortlistEntry.php` — one finalist on a
 category's shortlist.
@@ -309,7 +311,7 @@ category's shortlist.
 | `category_id` | FK → Category (`cascadeOnDelete`) |
 | `nominee_type` | `NomineeType` enum slug — the polymorphic morph alias |
 | `nominee_id` | the Catalog row id |
-| `points` | nullable — summed academy points (null reserved for a future manually-added entry) |
+| `points` | nullable — summed academy points; on a manual adjust, re-derived (0 if the nominee had no academy nominations) |
 | `position` | 1 = top of the shortlist |
 
 Unique `(edition_id, category_id, nominee_type, nominee_id)` and `(edition_id, category_id, position)`.

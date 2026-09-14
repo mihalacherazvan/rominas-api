@@ -30,4 +30,13 @@ class ShortlistEntryPolicy
     {
         return $user->can('shortlists');
     }
+
+    /**
+     * Manually adjusting a category's shortlist (the review flow) is a class-level write — no instance
+     * is bound on the adjust route, so the ability is checked against the class.
+     */
+    public function update(User $user): bool
+    {
+        return $user->can('shortlists');
+    }
 }

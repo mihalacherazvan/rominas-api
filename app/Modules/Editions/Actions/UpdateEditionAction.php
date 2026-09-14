@@ -19,6 +19,16 @@ class UpdateEditionAction
         $edition->voting_end_at = $data->voting_end_at;
         $edition->ends_at = $data->ends_at;
 
+        // Weights are optional on the request; only overwrite when supplied so an update that omits
+        // them keeps the edition's current weighting.
+        if ($data->academy_vote_weight !== null) {
+            $edition->academy_vote_weight = $data->academy_vote_weight;
+        }
+
+        if ($data->public_vote_weight !== null) {
+            $edition->public_vote_weight = $data->public_vote_weight;
+        }
+
         $edition->save();
 
         return $edition;

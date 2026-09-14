@@ -75,6 +75,46 @@ it('rejects equal adjacent timestamps (strict ordering)', function (): void {
     ]))->assertStatus(422)->assertJsonValidationErrorFor('nominations_start_at');
 });
 
+it('updates an edition\'s vote weights', function (): void {
+    actingAsSuperAdmin();
+    $edition = Edition::factory()->create();
+
+    patchJson("/api/admin/editions/{$edition->id}", validEditionPayload([
+        'name' => $edition->name,
+        'academy_vote_weight' => 70,
+        'public_vote_weight' => 30,
+    ]))
+        ->assertStatus(200)
+        ->assertJsonPath('data.academy_vote_weight', 70)
+        ->assertJsonPath('data.public_vote_weight', 30);
+
+    expect($edition->fresh()->academy_vote_weight)->toBe(70);
+});
+
+it('keeps the current weights when an update omits them', function (): void {
+    actingAsSuperAdmin();
+    $edition = Edition::factory()->create(['academy_vote_weight' => 55, 'public_vote_weight' => 45]);
+
+    patchJson("/api/admin/editions/{$edition->id}", validEditionPayload(['name' => $edition->name]))
+        ->assertStatus(200);
+
+    expect($edition->fresh()->academy_vote_weight)->toBe(55)
+        ->and($edition->fresh()->public_vote_weight)->toBe(45);
+});
+
+it('rejects both vote weights being zero', function (): void {
+    actingAsSuperAdmin();
+    $edition = Edition::factory()->create();
+
+    patchJson("/api/admin/editions/{$edition->id}", validEditionPayload([
+        'name' => $edition->name,
+        'academy_vote_weight' => 0,
+        'public_vote_weight' => 0,
+    ]))
+        ->assertStatus(422)
+        ->assertJsonValidationErrorFor('academy_vote_weight');
+});
+
 it('performs a valid lifecycle transition', function (): void {
     actingAsSuperAdmin();
     $edition = Edition::factory()->create(); // draft

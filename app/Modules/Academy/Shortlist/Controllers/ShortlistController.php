@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Rominas\Academy\Shortlist\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Rominas\Academy\Shortlist\Actions\AdjustCategoryShortlistAction;
 use Rominas\Academy\Shortlist\Actions\GenerateCategoryShortlistAction;
 use Rominas\Academy\Shortlist\Actions\GenerateEditionShortlistsAction;
+use Rominas\Academy\Shortlist\Actions\GetCategoryShortlistCandidatesAction;
 use Rominas\Academy\Shortlist\Model\ShortlistEntry;
+use Rominas\Academy\Shortlist\Requests\AdjustShortlistRequest;
 use Rominas\Academy\Shortlist\Resources\ShortlistEntryResource;
 use Rominas\Categories\Model\Category;
 use Rominas\Editions\Model\Edition;
@@ -47,5 +51,31 @@ class ShortlistController
         GenerateCategoryShortlistAction $action,
     ): AnonymousResourceCollection {
         return ShortlistEntryResource::collection($action->execute($edition, $category));
+    }
+
+    /**
+     * The ranked candidate pool for a category — every academy-nominated nominee, ordered by points —
+     * for the manual review UI to reorder/trim.
+     */
+    public function candidates(
+        Edition $edition,
+        Category $category,
+        GetCategoryShortlistCandidatesAction $action,
+    ): JsonResponse {
+        return response()->json(['data' => $action->execute($edition, $category)]);
+    }
+
+    /**
+     * Replace a category's shortlist with the admin's final ordered nominees.
+     */
+    public function adjust(
+        Edition $edition,
+        Category $category,
+        AdjustShortlistRequest $request,
+        AdjustCategoryShortlistAction $action,
+    ): AnonymousResourceCollection {
+        return ShortlistEntryResource::collection(
+            $action->execute($edition, $category, $request->nomineeIds()),
+        );
     }
 }
