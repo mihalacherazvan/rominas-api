@@ -131,6 +131,8 @@ The lifecycle state machine and the six-datetime timeline are documented in full
 | `voting_end_at` | public voting closes (mandatory) |
 | `ends_at` | overall edition window end (mandatory) |
 | `status` | `EditionStatus` enum, default `draft` |
+| `academy_vote_weight` | result weight of the academy round, default `60` (read by `Scoring`) |
+| `public_vote_weight` | result weight of public voting, default `40` (read by `Scoring`) |
 
 All six datetimes are **strictly ordered**: `starts_at < nominations_start_at < nominations_end_at
 < voting_start_at < voting_end_at < ends_at`, enforced by chained `after:` rules in
@@ -383,6 +385,19 @@ the accountless flow are in [access-control.md](access-control.md#2f-public-voti
   pipeline driven by `config/delivery.php`; no stored models.
 - **`Shared`** (`app/Modules/Shared/Concerns/`) — cross-module query-builder concerns
   (`QueryBuilderSearchableTrait`, `QueryBuilderSortableTrait`).
+- **`Scoring`** (`app/Modules/Scoring/`) — the results engine; **computes on demand, persists nothing**
+  (the future `Results` module owns the custodian-gated view/export and the publish-time snapshot). Per
+  category it re-tallies each shortlisted nominee's academy points (submitted `NominationRanking`s) and
+  public points (submitted `BallotRanking`s) via the `RankPoints` curve, **normalizes each class to a
+  share of that class's own category total** (so the two scales — dozens of academy members vs. thousands
+  of voters — become comparable), then weights by the **edition's own** `academy_vote_weight` /
+  `public_vote_weight` (default 60 / 40): `finalScore = 0.6·academyShare + 0.4·publicShare` (0..1).
+  Ranking uses an **exact integer key** (`wₐ·aᵢ·P + wₚ·pᵢ·A`) — never floats — with ties broken academy →
+  public → nominee id; a category with no public votes renormalizes to academy 100%. Weights live on the
+  edition; display precision in `config/scoring.php`.
+  `ScoreCalculator` (pure, DB-free) holds the maths; `ComputeCategoryScoresAction` /
+  `ComputeEditionScoresAction` wire the DB and cache per edition + status (inputs are frozen from
+  `voting_closed` onward). Guarded to `voting_closed` / `committee_review` / `results_published`.
 
 ---
 
@@ -393,7 +408,6 @@ Tracked in the ecosystem [`CLAUDE.md`](../../CLAUDE.md); each gets its own secti
 | Module | Planned entities / concern |
 | --- | --- |
 | `CriticsChoice` | `Critic` (separate authenticatable + guard), committee submissions |
-| `Scoring` | Ranking→points rules; academy 60% / public 40% weighting; points-per-rank curve (the `RankPoints` curve is already seeded — see [Shortlist](#shortlist)) |
-| `Results` | Custodian-gated aggregation + export |
+| `Results` | Custodian-gated view/export of the computed `Scoring` results; publish-time frozen snapshot |
 | `FraudMonitoring` | Near-real-time vote monitoring; vote cancellation (reason required, audited) |
 | `Audit` | Audit trail across sensitive actions (greenfield — no `door` template) |

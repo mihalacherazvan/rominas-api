@@ -35,6 +35,8 @@ class EditionFactory extends Factory
             'voting_end_at' => $startsAt->copy()->addWeeks(6),
             'ends_at' => $startsAt->copy()->addMonths(3),
             'status' => EditionStatus::Draft,
+            'academy_vote_weight' => 60,
+            'public_vote_weight' => 40,
         ];
     }
 

@@ -53,6 +53,12 @@ throws a `ValidationException` (**422**). On success it sets and saves the new s
 > `[voting_start_at, voting_end_at]` (`Voting\ResolveOpenVotingEditionAction`). See the
 > [Shortlist](domain-model.md#shortlist) / [Voting](domain-model.md#voting) domain notes and
 > [access-control.md](access-control.md#2e-nominee-shortlist).
+>
+> Likewise **results scoring** (`Scoring` module) gates on edition state directly: it is computed on
+> demand once the edition reaches `voting_closed` and stays available through `committee_review` and
+> `results_published`. The inputs are frozen from `voting_closed` onward, so the computation is cached
+> per edition + status. See the [Scoring](domain-model.md#behavioural-modules-no-persistent-entities)
+> domain note.
 
 ## 3. The timeline (six datetimes, strictly ordered)
 

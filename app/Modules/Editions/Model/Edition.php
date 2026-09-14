@@ -29,6 +29,8 @@ use Rominas\Editions\QueryBuilders\EditionQueryBuilder;
     'voting_end_at',
     'ends_at',
     'status',
+    'academy_vote_weight',
+    'public_vote_weight',
 ])]
 #[UsePolicy(EditionPolicy::class)]
 class Edition extends Model
@@ -49,6 +51,8 @@ class Edition extends Model
             'voting_end_at' => 'datetime',
             'ends_at' => 'datetime',
             'status' => EditionStatus::class,
+            'academy_vote_weight' => 'integer',
+            'public_vote_weight' => 'integer',
         ];
     }
 

@@ -33,4 +33,9 @@ class BallotQueryBuilder extends Builder
     {
         return $this->where('status', '=', BallotStatus::Issued->value);
     }
+
+    public function submitted(): self
+    {
+        return $this->where('status', '=', BallotStatus::Submitted->value);
+    }
 }

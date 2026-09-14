@@ -20,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->configureDeliveryServices();
+        $this->configureScoring();
     }
 
     /**
@@ -53,6 +54,17 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Relation::morphMap($map);
+    }
+
+    /**
+     * Supply the Scoring engine with its display precision (config/scoring.php). The class weights are
+     * per-edition (`editions.academy_vote_weight` / `public_vote_weight`) and passed at call time.
+     */
+    private function configureScoring(): void
+    {
+        $this->app->when(\Rominas\Scoring\Support\ScoreCalculator::class)
+            ->needs('$precision')
+            ->give(static fn(): int => (int) config('scoring.precision'));
     }
 
     /**
