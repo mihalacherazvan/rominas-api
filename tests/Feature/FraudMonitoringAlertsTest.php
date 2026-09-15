@@ -208,6 +208,51 @@ it('is idempotent across runs (one alert per signature)', function (): void {
         ->and($alerts->first()->ballots()->count())->toBe(3);
 });
 
+it('raises a new pending alert when a solved signature re-offends', function (): void {
+    config(['fraud.shared_ip.threshold' => 3]);
+    $edition = Edition::factory()->status(EditionStatus::VotingOpen)->create();
+    $ip = hash('sha256', '203.0.113.9');
+
+    $first = collect(range(1, 3))->map(fn(): Ballot => alertsSeedBallot($edition, $ip));
+    $action = app(DetectVotingFraudAction::class);
+    $action->execute($edition);
+
+    // Resolve: invalidate the cluster's ballots and mark the alert solved.
+    $batch = InvalidationBatch::factory()->create(['edition_id' => $edition->id]);
+    Ballot::query()->whereIn('id', $first->pluck('id')->all())->update(['invalidation_batch_id' => $batch->id]);
+    FraudAlert::query()->firstOrFail()->update(['status' => FraudAlertStatus::Solved]);
+
+    // A fresh wave from the same IP.
+    $second = collect(range(1, 3))->map(fn(): Ballot => alertsSeedBallot($edition, $ip));
+    $action->execute($edition);
+
+    $forSignature = FraudAlert::query()->where('signature', $ip);
+    expect((clone $forSignature)->count())->toBe(2)
+        ->and((clone $forSignature)->where('status', FraudAlertStatus::Solved->value)->count())->toBe(1)
+        ->and((clone $forSignature)->where('status', FraudAlertStatus::Pending->value)->count())->toBe(1);
+
+    $pending = (clone $forSignature)->where('status', FraudAlertStatus::Pending->value)->firstOrFail();
+    expect($pending->ballots()->pluck('ballots.id')->sort()->values()->all())
+        ->toBe($second->pluck('id')->sort()->values()->all());
+});
+
+it('does not re-raise a dismissed signature', function (): void {
+    config(['fraud.shared_ip.threshold' => 3]);
+    $edition = Edition::factory()->status(EditionStatus::VotingOpen)->create();
+    $ip = hash('sha256', '203.0.113.9');
+    collect(range(1, 3))->each(fn(): Ballot => alertsSeedBallot($edition, $ip));
+
+    $action = app(DetectVotingFraudAction::class);
+    $action->execute($edition);
+    FraudAlert::query()->firstOrFail()->update(['status' => FraudAlertStatus::Dismissed]);
+
+    // The same still-valid ballots are re-detected: stay one dismissed alert, do not raise a new pending.
+    $action->execute($edition);
+
+    expect(FraudAlert::query()->count())->toBe(1)
+        ->and(FraudAlert::query()->firstOrFail()->status)->toBe(FraudAlertStatus::Dismissed);
+});
+
 it('runs via the fraud:detect command', function (): void {
     config(['fraud.shared_ip.threshold' => 3]);
     $edition = Edition::factory()->status(EditionStatus::VotingOpen)->create();

@@ -47,14 +47,22 @@ class DetectVotingFraudAction
     private function persist(Edition $edition, AlertCandidate $candidate): void
     {
         DB::transaction(function () use ($edition, $candidate): void {
-            /** @var FraudAlert $alert */
-            $alert = FraudAlert::query()->firstOrNew([
-                'edition_id' => $edition->id,
-                'type' => $candidate->type->value,
-                'signature' => $candidate->signature,
-            ]);
+            // Reuse the signature's active alert (pending, or a dismissed false positive we keep
+            // suppressed), but NOT a `solved` one — a fresh wave after resolution is a new episode and
+            // gets its own pending alert, leaving solved rows as history.
+            $alert = FraudAlert::query()
+                ->where('edition_id', '=', $edition->id)
+                ->where('type', '=', $candidate->type->value)
+                ->where('signature', '=', $candidate->signature)
+                ->where('status', '!=', FraudAlertStatus::Solved->value)
+                ->first();
 
-            if (! $alert->exists) {
+            if ($alert === null) {
+                $alert = new FraudAlert([
+                    'edition_id' => $edition->id,
+                    'type' => $candidate->type,
+                    'signature' => $candidate->signature,
+                ]);
                 $alert->status = FraudAlertStatus::Pending;
                 $alert->first_detected_at = now();
             }

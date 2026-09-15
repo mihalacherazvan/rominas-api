@@ -488,12 +488,14 @@ edition's cached Scoring output.
 | `ballot_count` | implicated-ballot count at last detection |
 | `first_detected_at` / `last_detected_at` | detection timeline |
 
-Unique `(edition_id, type, signature)` is the dedupe key. `belongsTo` Edition; `belongsToMany` Ballot via
-the `fraud_alert_ballot` pivot (`ballots()`). `FraudAlertQueryBuilder` adds `forEdition` +
-`visibleToUser` / `actionableByUser`. Written by `DetectVotingFraudAction` (invoked by the `fraud:detect`
-command): each detector's candidates are **upserted** by signature — a re-detected cluster refreshes its
-facts and re-`sync()`s the pivot, but **never** its `status` (the monitor owns triage, so a `dismissed`
-false positive stays dismissed). `UpdateFraudAlertStatusAction` sets the status from the admin endpoint;
+`(edition_id, type, signature)` is indexed (not unique) — dedupe is **per active alert**. `belongsTo`
+Edition; `belongsToMany` Ballot via the `fraud_alert_ballot` pivot (`ballots()`). `FraudAlertQueryBuilder`
+adds `forEdition` + `visibleToUser` / `actionableByUser`. Written by `DetectVotingFraudAction` (invoked by
+the `fraud:detect` command): each detector's candidate reuses the signature's existing **non-`solved`**
+alert (a `pending` one, or a `dismissed` false positive kept suppressed) — refreshing its facts and
+re-`sync()`ing the pivot but **never** its `status` — and otherwise creates a new `pending` alert. So a
+signature that re-offends after being `solved` (its ballots invalidated → excluded by `->valid()`) raises
+a **new** alert, and `solved` rows accumulate as per-episode history. `UpdateFraudAlertStatusAction` sets the status from the admin endpoint;
 it does not itself invalidate ballots (that stays the explicit `InvalidateBallotsAction`).
 
 ---
