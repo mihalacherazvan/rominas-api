@@ -431,18 +431,30 @@ event (→ `results_published`); see [edition-lifecycle.md](edition-lifecycle.md
 
 ## FraudMonitoring
 
-`FraudMonitoring` (`app/Modules/FraudMonitoring/`) lets a **fraud monitor** or **custodian** review an
-edition's public ballots and cancel fraudulent votes. Cancellation is done in **batches**, each carrying
-a single mandatory reason and the acting admin — the batch is the audit unit. Cancelled ballots point
-back at their batch and stop counting toward [Scoring](#behavioural-modules-no-persistent-entities).
-**Invalidation is terminal** (no reversal); the nullable FK leaves room to add one later. Endpoints and
-authorization are in [access-control.md](access-control.md#2h-fraud-monitoring).
+`FraudMonitoring` (`app/Modules/FraudMonitoring/`) gives a **fraud monitor** or **custodian** two things:
+a **reactive** side — review an edition's public ballots and cancel fraudulent votes — and a
+**proactive** side — a scheduled sweep that flags suspicious clusters as reviewable alerts. Both are
+gated by the single `fraudMonitoring` permission. Endpoints/authorization: [access-control.md](access-control.md#2h-fraud-monitoring).
+
+**Reactive — vote cancellation.** Cancellation is done in **batches**, each carrying a single mandatory
+reason and the acting admin — the batch is the audit unit. Cancelled ballots point back at their batch
+and stop counting toward [Scoring](#behavioural-modules-no-persistent-entities). **Invalidation is
+terminal** (no reversal); the nullable FK leaves room to add one later.
+
+**Proactive — fraud alerts.** A scheduled command (`fraud:detect`, hourly) runs pluggable detectors over
+the edition's submitted, still-valid ballots and records a `FraudAlert` per suspicious cluster. Detectors
+(`FraudMonitoring/Detectors/`): **SharedIp** (N+ ballots sharing one `ip_hash`), **VelocityBurst** (a
+submission spike inside a fixed time window), **IdenticalRanking** (N+ ballots with a byte-identical
+ordered vote set — a bot fingerprint). Thresholds live in `config/fraud.php`. New composite indexes
+`(edition_id, ip_hash)` and `(edition_id, submitted_at)` on `ballots` support the sweep.
 
 ```mermaid
 erDiagram
     EDITION ||--o{ INVALIDATION_BATCH : "scopes"
     USER ||--o{ INVALIDATION_BATCH : "cancelled by"
     INVALIDATION_BATCH ||--o{ BALLOT : "cancels"
+    EDITION ||--o{ FRAUD_ALERT : "scopes"
+    FRAUD_ALERT }o--o{ BALLOT : "implicates (fraud_alert_ballot)"
 ```
 
 **InvalidationBatch** — `app/Modules/FraudMonitoring/Model/InvalidationBatch.php` — one vote-cancellation
@@ -460,6 +472,27 @@ event.
 `InvalidateBallotsAction`, which only affects the edition's **submitted, not-already-invalidated**
 ballots among the requested ids (idempotent), sets each one's `invalidation_batch_id`, and busts the
 edition's cached Scoring output.
+
+**FraudAlert** — `app/Modules/FraudMonitoring/Model/FraudAlert.php` — one recorded suspicious cluster.
+
+| Field | Notes |
+| --- | --- |
+| `edition_id` | FK → Edition (`cascadeOnDelete`) |
+| `type` | `FraudAlertType` — `shared_ip` \| `velocity_burst` \| `identical_ranking` |
+| `signature` | stable dedupe key for the cluster (the ip_hash, the window start, or the ranking hash) |
+| `severity` | `FraudAlertSeverity` — `low` \| `medium` \| `high` (from the count-vs-threshold ratio) |
+| `status` | `FraudAlertStatus` — `pending` (default) \| `solved` \| `dismissed` (set by a monitor) |
+| `context` | JSON — hashes/counts only, **no plaintext PII** |
+| `ballot_count` | implicated-ballot count at last detection |
+| `first_detected_at` / `last_detected_at` | detection timeline |
+
+Unique `(edition_id, type, signature)` is the dedupe key. `belongsTo` Edition; `belongsToMany` Ballot via
+the `fraud_alert_ballot` pivot (`ballots()`). `FraudAlertQueryBuilder` adds `forEdition` +
+`visibleToUser` / `actionableByUser`. Written by `DetectVotingFraudAction` (invoked by the `fraud:detect`
+command): each detector's candidates are **upserted** by signature — a re-detected cluster refreshes its
+facts and re-`sync()`s the pivot, but **never** its `status` (the monitor owns triage, so a `dismissed`
+false positive stays dismissed). `UpdateFraudAlertStatusAction` sets the status from the admin endpoint;
+it does not itself invalidate ballots (that stays the explicit `InvalidateBallotsAction`).
 
 ---
 

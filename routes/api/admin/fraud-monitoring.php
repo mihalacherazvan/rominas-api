@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
+use Rominas\FraudMonitoring\Controllers\FraudAlertsController;
 use Rominas\FraudMonitoring\Controllers\FraudMonitoringController;
+use Rominas\FraudMonitoring\Model\FraudAlert;
 use Rominas\FraudMonitoring\Model\InvalidationBatch;
 
 // Admin fraud monitoring, nested under an edition. The `fraudMonitoring` permission is checked against
@@ -24,3 +26,16 @@ Route::post('/{edition}/invalidations', [FraudMonitoringController::class, 'stor
 Route::get('/{edition}/invalidations/{invalidationBatch}', [FraudMonitoringController::class, 'show'])
     ->name('fraud.invalidations.show')
     ->middleware('can:view,invalidationBatch');
+
+// Fraud alerts: the scheduled detectors' findings, reviewable and triageable (pending/solved/dismissed).
+Route::get('/{edition}/fraud-alerts', [FraudAlertsController::class, 'index'])
+    ->name('fraud.alerts.index')
+    ->middleware('can:viewAny,' . FraudAlert::class);
+
+Route::get('/{edition}/fraud-alerts/{fraudAlert}', [FraudAlertsController::class, 'show'])
+    ->name('fraud.alerts.show')
+    ->middleware('can:view,fraudAlert');
+
+Route::patch('/{edition}/fraud-alerts/{fraudAlert}', [FraudAlertsController::class, 'update'])
+    ->name('fraud.alerts.update')
+    ->middleware('can:update,fraudAlert');

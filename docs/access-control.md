@@ -186,7 +186,20 @@ Admin endpoints, under `/api/admin/editions` (Sanctum-guarded):
   a single batch.
 
 Cancelling busts the edition's cached Scoring output, so live results reflect the exclusion immediately;
-the `->valid()` filter keeps cancelled ballots out of the public tally. See the
+the `->valid()` filter keeps cancelled ballots out of the public tally.
+
+**Fraud alerts** (the proactive side — a scheduled sweep, `FraudAlert` via `FraudAlertPolicy`, same
+`fraudMonitoring` permission):
+
+- `GET   /api/admin/editions/{edition}/fraud-alerts` (`can:viewAny,FraudAlert`) — the edition's alerts,
+  newest activity first (hashes only, no plaintext PII).
+- `GET   /api/admin/editions/{edition}/fraud-alerts/{fraudAlert}` (`can:view,fraudAlert`) — a single
+  alert with the ballots it implicates. 404 if the alert is not in the edition.
+- `PATCH /api/admin/editions/{edition}/fraud-alerts/{fraudAlert}` (`can:update,fraudAlert`) — set the
+  triage `status` (`pending` \| `solved` \| `dismissed`). Detection never overwrites a human-set status.
+
+Alerts are produced by the `fraud:detect` command (scheduled hourly in `routes/console.php`) — the
+scheduler only fires if the OS cron runs `php artisan schedule:run`. See the
 [FraudMonitoring](domain-model.md#fraudmonitoring) domain notes.
 
 ## 2. Admin login (the `Auth` module)

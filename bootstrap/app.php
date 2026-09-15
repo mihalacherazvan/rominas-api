@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Rominas\FraudMonitoring\Commands\DetectVotingFraudCommand;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__ . '/../routes/console.php',
         health: '/up',
     )
+    ->withCommands([
+        // Module commands live under app/Modules and are not auto-discovered — register them here.
+        DetectVotingFraudCommand::class,
+    ])
     ->withMiddleware(function (Middleware $middleware): void {
         //
     })
