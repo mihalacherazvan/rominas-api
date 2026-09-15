@@ -578,6 +578,25 @@ pointer entry rather than re-storing their detail.
   `ScoreCalculator` (pure, DB-free) holds the maths; `ComputeCategoryScoresAction` /
   `ComputeEditionScoresAction` wire the DB and cache per edition + status (inputs are frozen from
   `voting_closed` onward). Guarded to `voting_closed` / `committee_review` / `results_published`.
+- **`Reporting`** (`app/Modules/Reporting/`) — general management statistics, **kept separate from
+  final `Results`**; **read-only aggregation, persists nothing** (no table, no model). Its foundation is
+  the `ReportInterface` (`Reports/`): every report exposes `key()` / `title()` / `columns()` and a
+  `rows(ReportParameters)` generator, format-agnostically. A `ReportRegistry` (`Support/`) indexes the
+  reports listed in `config/reporting.php` by key; a `SpreadsheetReportExporter` (`Exporters/`) streams
+  any report's `columns()`/`rows()` as CSV **or** Excel via **openspout** (one code path, low memory).
+  The same shape backs the tabular JSON (`ReportResource`). Every vote report honours an optional
+  `from`/`to` window (`ReportParameters`); per-entity reports resolve category + entity display names in
+  batched, N+1-free passes via `Support/EntityLabeler` (`NomineeType::modelClass()`). Reports:
+  - **`VotesPerCategoryPerDayReport`** (`votes-per-category-per-day`) — distinct submitted, **non-cancelled**
+    ballots per category per UTC day (`COUNT(DISTINCT ballot_id)` grouped by category + `DATE(submitted_at)`).
+  - **`NominationsPerEntityReport`** (`nominations-per-entity`) — count of submitted academy nomination
+    picks per (category, entity). (The client's "nominations" and "academy votes" are one metric.)
+  - **`PublicVotesPerEntityReport`** (`public-votes-per-entity`) — **rank-weighted** public points per
+    (category, entity) via the `RankPoints` curve (summed in PHP over per-rank counts, single-sourced),
+    submitted + `->valid()` only. A plain count is degenerate (every ballot ranks every nominee).
+  - **`CancelledVotesPerDayReport`** (`cancelled-votes-per-day`) — invalidated ballots per UTC day.
+  The **final ranking** ("clasament final") is served by the existing `Results` module, not duplicated
+  here. Endpoints in [access-control.md](access-control.md); `reporting` permission (admin).
 
 ---
 

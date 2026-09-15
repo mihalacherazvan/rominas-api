@@ -63,4 +63,6 @@ Route::middleware(['auth:sanctum', 'audit'])->prefix('/admin')->name('api.admin.
     Route::prefix('/albums')->name('albums.')->group(__DIR__ . '/api/admin/albums.php');
 
     Route::prefix('/audit-logs')->name('audit-logs.')->group(__DIR__ . '/api/admin/audit.php');
+
+    Route::prefix('/reports')->name('reports.')->group(__DIR__ . '/api/admin/reporting.php');
 });

@@ -223,6 +223,29 @@ Both routes are listed in `config('audit.ignore')`, so reading the trail records
 and isn't recorded, redaction, and the `Context` enrichment hook are covered in the
 [Audit](domain-model.md#audit-cross-cutting-trail) domain notes.
 
+## 2j. Reporting (the `Reporting` module)
+
+General management statistics, **kept separate from final `Results`**. Authorization is the `reporting`
+permission, enforced by the route's **modelless** `can:reporting` middleware (the module owns no entity,
+so there is no policy — spatie registers permission names as gate abilities). Granted to **`admin`**;
+`super_admin` bypasses (§5). A report is addressed by its registry key.
+
+Admin endpoints, under `/api/admin/reports` (Sanctum-guarded, all `can:reporting`):
+
+- `GET /api/admin/reports` — the catalogue: each registered report's `key`, `title` and `columns`.
+- `GET /api/admin/reports/{report}` — run the report → tabular JSON (`key`, `title`, `columns`, `rows`).
+  `404` on an unknown key; `422` if no `edition_id` is given and no active edition exists.
+- `GET /api/admin/reports/{report}/export` — stream the report as a download; `?format=csv` (default)
+  or `?format=xlsx`.
+
+Registered report keys: `votes-per-category-per-day`, `nominations-per-entity`,
+`public-votes-per-entity`, `cancelled-votes-per-day`. (The final ranking is served separately by the
+`Results` module, §2g.)
+
+Optional query inputs (shared by view + export): `edition_id` (defaults to the active edition), and a
+`from` / `to` date window (applied to every vote report). Reports are read-only aggregations; see
+the [Reporting](domain-model.md#behavioural-modules-no-persistent-entities) domain notes.
+
 ## 2. Admin login (the `Auth` module)
 
 `POST /api/authenticate` (`Auth\Controllers\AuthController::authenticate`, `AuthenticateRequest`):
@@ -250,9 +273,10 @@ with the fraud monitor (the `fraudMonitoring` permission; see §2h). **`fraud_mo
 role whose sole right is that same vote review/cancellation.
 
 **Permissions** (`PermissionSeeder`) are resource-named: `editions`, `categories`, `members`,
-`memberProposals`, `shortlists`, `results`, `fraudMonitoring`, `audit`, `artists`, `bands`, `venues`,
-`songs`, `albums`, `taxonomies`, `taxonomyTerms` (plus `roles`, `permissions`).
-The `admin` role is granted the domain set **except `results`, `fraudMonitoring` and `audit`**; `custodian`
+`memberProposals`, `shortlists`, `results`, `fraudMonitoring`, `reporting`, `audit`, `artists`, `bands`,
+`venues`, `songs`, `albums`, `taxonomies`, `taxonomyTerms` (plus `roles`, `permissions`).
+The `admin` role is granted the domain set (including `reporting`) **except `results`, `fraudMonitoring`
+and `audit`**; `custodian`
 is granted `results` + `fraudMonitoring`; `fraud_monitor` is granted `fraudMonitoring`; `audit` is granted
 to **no role**, so only `super_admin` reads the audit trail (it bypasses — §5; see §2i). User/role/permission
 management is currently `super_admin`-only.
