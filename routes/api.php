@@ -29,6 +29,11 @@ Route::middleware('auth:member')->prefix('/academy')->name('api.academy.')
 Route::prefix('/voting')->name('api.voting.')->group(__DIR__ . '/api/voting/public.php');
 
 // ---------------------------------------------------------------------------
+// Public results API (unauthenticated — a published edition's frozen results snapshot).
+// ---------------------------------------------------------------------------
+Route::prefix('/results')->name('api.results.')->group(__DIR__ . '/api/results.php');
+
+// ---------------------------------------------------------------------------
 // Admin / management API (Sanctum-guarded, per-concern files under routes/api/admin/).
 // ---------------------------------------------------------------------------
 Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group(function (): void {
@@ -40,6 +45,7 @@ Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group
 
     Route::prefix('/editions')->name('editions.')->group(__DIR__ . '/api/admin/editions.php');
     Route::prefix('/editions')->name('editions.')->group(__DIR__ . '/api/admin/shortlist.php');
+    Route::prefix('/editions')->name('editions.')->group(__DIR__ . '/api/admin/results.php');
     Route::prefix('/categories')->name('categories.')->group(__DIR__ . '/api/admin/categories.php');
     Route::prefix('/members')->name('members.')->group(__DIR__ . '/api/admin/members.php');
     Route::prefix('/member-proposals')->name('member-proposals.')->group(__DIR__ . '/api/admin/member-proposals.php');

@@ -136,6 +136,33 @@ keyed by `config('voting.pepper')` (env `VOTING_PEPPER`, falls back to `APP_KEY`
 and never rotated once ballots exist. The link token is stored only as its SHA-256. See the
 [Voting](domain-model.md#voting) domain notes.
 
+## 2g. Results (the `Results` module)
+
+Final results are **custodian-gated until publication**. Authorization is the `results` permission via
+`ResultPolicy` (checked against the `ResultSnapshot` class — the routes bind an `Edition`, not a snapshot
+row); only the `custodian` role holds it (`super_admin` bypasses). The `admin` role is **deliberately not**
+granted `results` — an admin cannot see complete results before they are public.
+
+Admin/custodian endpoints, under `/api/admin/editions` (Sanctum-guarded):
+
+- `GET /api/admin/editions/{edition}/results` (`can:viewAny,ResultSnapshot`) — the edition's complete
+  results. Computed live during the review window, served from the frozen snapshot once published.
+- `GET /api/admin/editions/{edition}/results/export` (`can:viewAny,ResultSnapshot`) — the same data as a
+  CSV download (`response()->streamDownload()`, no extra dependency).
+
+Both inherit Scoring's gate: results are only available once public voting has closed
+(`voting_closed` / `committee_review` / `results_published`), otherwise a 422 on `status`.
+
+Public endpoint, **unauthenticated**, under `/api/results`:
+
+- `GET /api/results/editions/{edition}` — a **published** edition's results, served from the frozen
+  snapshot only. An edition without a snapshot (not yet published) is a **404**; results become public
+  only at publish time.
+
+The snapshot is frozen automatically by the `FreezeResultsOnEditionPublished` listener when the edition
+transitions to `results_published` (see [edition-lifecycle.md](edition-lifecycle.md)). See the
+[Results](domain-model.md#results) domain notes.
+
 ## 2. Admin login (the `Auth` module)
 
 `POST /api/authenticate` (`Auth\Controllers\AuthController::authenticate`, `AuthenticateRequest`):
@@ -158,14 +185,14 @@ Authorization is [spatie/laravel-permission](https://spatie.be/docs/laravel-perm
 
 **Seeded roles** (`RoleSeeder`): `super_admin`, `admin`, `custodian`, `fraud_monitor`.
 **Custodian is a role, not a user type** — a custodian is an admin with the extra right to view/export
-final results (that gate lands with the `Results` module).
+final results before publication (the `results` permission, granted only to `custodian`; see §2g).
 
 **Permissions** (`PermissionSeeder`) are resource-named: `editions`, `categories`, `members`,
-`memberProposals`, `artists`, `bands`, `venues`, `songs`, `albums`, `taxonomies`, `taxonomyTerms`
-(plus `roles`, `permissions`).
-The `admin` role is granted the domain set; `super_admin` needs none (it bypasses — §5).
-User/role/permission management is currently `super_admin`-only. Regenerate/extend the set as
-modules land.
+`memberProposals`, `shortlists`, `results`, `artists`, `bands`, `venues`, `songs`, `albums`,
+`taxonomies`, `taxonomyTerms` (plus `roles`, `permissions`).
+The `admin` role is granted the domain set **except `results`**; `custodian` is granted `results`;
+`super_admin` needs none (it bypasses — §5). User/role/permission management is currently
+`super_admin`-only. Regenerate/extend the set as modules land.
 
 ## 4. Policies & route authorization
 

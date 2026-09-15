@@ -7,6 +7,7 @@ namespace App\Providers;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 use Rominas\Academy\Listeners\SendAcademyInvitationsOnEditionTransitioned;
 use Rominas\Editions\Events\EditionTransitioned;
+use Rominas\Results\Listeners\FreezeResultsOnEditionPublished;
 
 /**
  * Explicit event→listener wiring. Module listeners live under `app/Modules`, which Laravel's
@@ -20,6 +21,7 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         EditionTransitioned::class => [
             SendAcademyInvitationsOnEditionTransitioned::class,
+            FreezeResultsOnEditionPublished::class,
         ],
     ];
 }

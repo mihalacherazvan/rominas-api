@@ -374,6 +374,58 @@ the accountless flow are in [access-control.md](access-control.md#2f-public-voti
 
 ---
 
+## Results
+
+The custodian-gated, persistent face of the [Scoring](#behavioural-modules-no-persistent-entities)
+engine: while Scoring only ever computes on demand, `Results` (`app/Modules/Results/`) lets the
+**custodian** view/export an edition's complete results during the review window, and freezes an
+**immutable snapshot** into the database the moment the edition is published. Read path is unified — a
+published edition is served from its frozen snapshot, an unpublished one is computed live — so the same
+JSON shape (a Scoring `EditionScore`, enriched with category/nominee names by `EditionResultsPresenter`)
+covers both. The snapshot is what becomes **public** at publish time. Access rules are in
+[access-control.md](access-control.md#2g-results).
+
+```mermaid
+erDiagram
+    EDITION ||--o| RESULT_SNAPSHOT : "one, at publish"
+    RESULT_SNAPSHOT ||--o{ RESULT_ENTRY : "per nominee per category"
+    CATEGORY ||--o{ RESULT_ENTRY : "within"
+    RESULT_ENTRY }o--|| CATALOG : "nominee (morph by NomineeType slug)"
+```
+
+**ResultSnapshot** — `app/Modules/Results/Model/ResultSnapshot.php` — one frozen result set per edition.
+
+| Field | Notes |
+| --- | --- |
+| `edition_id` | FK → Edition (`cascadeOnDelete`), **unique** — one snapshot per edition |
+| `academy_vote_weight` | the academy weight in force at publish (captured so the snapshot is self-describing) |
+| `public_vote_weight` | the public weight in force at publish |
+| `published_at` | when the snapshot was frozen |
+
+`belongsTo` Edition; `hasMany` entries. `ResultSnapshotQueryBuilder` adds `forEdition` +
+`visibleToUser` / `actionableByUser` (the `results` permission). Written only by
+`PublishEditionResultsAction` (idempotent: an existing snapshot is replaced, entries cascade away).
+
+**ResultEntry** — `app/Modules/Results/Model/ResultEntry.php` — one nominee's frozen standing (mirrors
+Scoring's `NomineeScore` DTO).
+
+| Field | Notes |
+| --- | --- |
+| `result_snapshot_id` | FK → ResultSnapshot (`cascadeOnDelete`) |
+| `category_id` | FK → Category (`cascadeOnDelete`) |
+| `nominee_type` | `NomineeType` enum slug — the polymorphic morph alias |
+| `nominee_id` | the Catalog row id |
+| `academy_points` / `public_points` | raw summed points on each side |
+| `academy_share` / `public_share` / `final_score` | normalized shares and the weighted score (0..1, display-rounded) |
+| `position` | 1 = winner |
+
+Unique `(result_snapshot_id, category_id, nominee_type, nominee_id)` and
+`(result_snapshot_id, category_id, position)`. `nominee()` is a `morphTo` via the app-wide morph map.
+The snapshot is frozen by the `FreezeResultsOnEditionPublished` listener on the `EditionTransitioned`
+event (→ `results_published`); see [edition-lifecycle.md](edition-lifecycle.md).
+
+---
+
 ## Behavioural modules (no persistent entities)
 
 - **`Auth`** (`app/Modules/Auth/`) — admin username/password login → Sanctum token
@@ -410,6 +462,5 @@ Tracked in the ecosystem [`CLAUDE.md`](../../CLAUDE.md); each gets its own secti
 | Module | Planned entities / concern |
 | --- | --- |
 | `CriticsChoice` | `Critic` (separate authenticatable + guard), committee submissions |
-| `Results` | Custodian-gated view/export of the computed `Scoring` results; publish-time frozen snapshot |
 | `FraudMonitoring` | Near-real-time vote monitoring; vote cancellation (reason required, audited) |
 | `Audit` | Audit trail across sensitive actions (greenfield — no `door` template) |

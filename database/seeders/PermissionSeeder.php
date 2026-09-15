@@ -12,12 +12,34 @@ class PermissionSeeder extends Seeder
 {
     /**
      * Resource-level permissions checked by the simple policies. (User/role/permission
-     * management stays super_admin-only for now; custodian/fraud_monitor sets arrive
-     * with their Phase 2 modules.)
+     * management stays super_admin-only for now; the fraud_monitor set arrives with its
+     * Phase 2 module.)
      *
      * @var list<string>
      */
     private const PERMISSIONS = [
+        'editions',
+        'categories',
+        'members',
+        'memberProposals',
+        'shortlists',
+        'results',
+        'artists',
+        'bands',
+        'venues',
+        'songs',
+        'albums',
+        'taxonomies',
+        'taxonomyTerms',
+    ];
+
+    /**
+     * Baseline granted to the `admin` role (super_admin bypasses all via Gate::before). `results` is
+     * deliberately excluded — viewing/exporting final results before publication is custodian-only.
+     *
+     * @var list<string>
+     */
+    private const ADMIN_GRANTS = [
         'editions',
         'categories',
         'members',
@@ -33,11 +55,13 @@ class PermissionSeeder extends Seeder
     ];
 
     /**
-     * Baseline granted to the `admin` role (super_admin bypasses all via Gate::before).
+     * The custodian's extra right: view/export an edition's complete final results before publication.
      *
      * @var list<string>
      */
-    private const ADMIN_GRANTS = self::PERMISSIONS;
+    private const CUSTODIAN_GRANTS = [
+        'results',
+    ];
 
     public function run(): void
     {
@@ -52,6 +76,12 @@ class PermissionSeeder extends Seeder
 
         if ($admin !== null) {
             $admin->syncPermissions(self::ADMIN_GRANTS);
+        }
+
+        $custodian = Role::query()->where('name', 'custodian')->where('guard_name', 'web')->first();
+
+        if ($custodian !== null) {
+            $custodian->syncPermissions(self::CUSTODIAN_GRANTS);
         }
     }
 }
