@@ -163,6 +163,32 @@ The snapshot is frozen automatically by the `FreezeResultsOnEditionPublished` li
 transitions to `results_published` (see [edition-lifecycle.md](edition-lifecycle.md)). See the
 [Results](domain-model.md#results) domain notes.
 
+## 2h. Fraud monitoring (the `FraudMonitoring` module)
+
+Reviewing an edition's public ballots and cancelling fraudulent votes. Authorization is the
+`fraudMonitoring` permission via `InvalidationBatchPolicy` (checked against the `InvalidationBatch`
+class — the routes bind an `Edition`, not a batch row). Held by the **`fraud_monitor`** and
+**`custodian`** roles; **deliberately not** granted to `admin` (`super_admin` bypasses). Cancelling votes
+**always requires a reason** and is recorded as an audited batch.
+
+Admin endpoints, under `/api/admin/editions` (Sanctum-guarded):
+
+- `GET /api/admin/editions/{edition}/ballots` (`can:viewAny,InvalidationBatch`) — the edition's submitted
+  ballots, paginated, each with a shared-`ip_hash` fraud signal and its current invalid state. Hashes
+  only — never plaintext PII.
+- `POST /api/admin/editions/{edition}/invalidations` (`can:create,InvalidationBatch`) — cancel the
+  selected ballots as one batch (`reason` + `ballot_ids` required). Only the edition's submitted,
+  not-already-cancelled ballots are affected; a selection with none eligible is a **422**. Returns the
+  batch (**201**).
+- `GET /api/admin/editions/{edition}/invalidations` (`can:viewAny,InvalidationBatch`) — the edition's
+  cancellation batches (audit log).
+- `GET /api/admin/editions/{edition}/invalidations/{invalidationBatch}` (`can:view,invalidationBatch`) —
+  a single batch.
+
+Cancelling busts the edition's cached Scoring output, so live results reflect the exclusion immediately;
+the `->valid()` filter keeps cancelled ballots out of the public tally. See the
+[FraudMonitoring](domain-model.md#fraudmonitoring) domain notes.
+
 ## 2. Admin login (the `Auth` module)
 
 `POST /api/authenticate` (`Auth\Controllers\AuthController::authenticate`, `AuthenticateRequest`):
@@ -185,14 +211,17 @@ Authorization is [spatie/laravel-permission](https://spatie.be/docs/laravel-perm
 
 **Seeded roles** (`RoleSeeder`): `super_admin`, `admin`, `custodian`, `fraud_monitor`.
 **Custodian is a role, not a user type** — a custodian is an admin with the extra right to view/export
-final results before publication (the `results` permission, granted only to `custodian`; see §2g).
+final results before publication (the `results` permission; see §2g), and shares vote review/cancellation
+with the fraud monitor (the `fraudMonitoring` permission; see §2h). **`fraud_monitor`** is a dedicated
+role whose sole right is that same vote review/cancellation.
 
 **Permissions** (`PermissionSeeder`) are resource-named: `editions`, `categories`, `members`,
-`memberProposals`, `shortlists`, `results`, `artists`, `bands`, `venues`, `songs`, `albums`,
-`taxonomies`, `taxonomyTerms` (plus `roles`, `permissions`).
-The `admin` role is granted the domain set **except `results`**; `custodian` is granted `results`;
-`super_admin` needs none (it bypasses — §5). User/role/permission management is currently
-`super_admin`-only. Regenerate/extend the set as modules land.
+`memberProposals`, `shortlists`, `results`, `fraudMonitoring`, `artists`, `bands`, `venues`, `songs`,
+`albums`, `taxonomies`, `taxonomyTerms` (plus `roles`, `permissions`).
+The `admin` role is granted the domain set **except `results` and `fraudMonitoring`**; `custodian` is
+granted `results` + `fraudMonitoring`; `fraud_monitor` is granted `fraudMonitoring`; `super_admin` needs
+none (it bypasses — §5). User/role/permission management is currently `super_admin`-only.
+Regenerate/extend the set as modules land.
 
 ## 4. Policies & route authorization
 

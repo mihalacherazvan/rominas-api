@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Rominas\Editions\Model\Edition;
+use Rominas\FraudMonitoring\Model\InvalidationBatch;
 use Rominas\Voting\Enums\BallotStatus;
 use Rominas\Voting\QueryBuilders\BallotQueryBuilder;
 
@@ -19,6 +20,9 @@ use Rominas\Voting\QueryBuilders\BallotQueryBuilder;
  * lifecycle. There is no account or guard: possession of the (hashed) token is the authorization. The
  * voter is pseudonymized as `email_hash` (unique per edition → one link ever), the link as `token_hash`
  * (unique, single-use). No plaintext personal data is stored. Cast votes live in child ballot_rankings.
+ *
+ * A ballot is valid iff `invalidation_batch_id` is null; a non-null FK means it was cancelled as part of
+ * an {@see InvalidationBatch} (FraudMonitoring) and no longer counts toward Scoring.
  *
  * @mixin IdeHelperBallot
  */
@@ -75,5 +79,13 @@ class Ballot extends Model
     public function rankings(): HasMany
     {
         return $this->hasMany(BallotRanking::class);
+    }
+
+    /**
+     * @return BelongsTo<InvalidationBatch, $this>
+     */
+    public function invalidationBatch(): BelongsTo
+    {
+        return $this->belongsTo(InvalidationBatch::class);
     }
 }

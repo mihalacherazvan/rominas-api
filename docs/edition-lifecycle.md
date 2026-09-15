@@ -63,6 +63,13 @@ throws a `ValidationException` (**422**). On success it sets and saves the new s
 > `results_published`. The inputs are frozen from `voting_closed` onward, so the computation is cached
 > per edition + status. See the [Scoring](domain-model.md#behavioural-modules-no-persistent-entities)
 > domain note.
+>
+> The **one deliberate exception** to "inputs frozen from `voting_closed`" is **vote cancellation**
+> (`FraudMonitoring`, see [access-control.md](access-control.md#2h-fraud-monitoring)): a fraud monitor or
+> custodian may cancel fraudulent ballots during the review window, before the `results_published` freeze.
+> Cancelling excludes those ballots from the public tally (`->valid()`) and busts the edition's cached
+> Scoring output, so the live results view reflects it immediately; the snapshot frozen at publish
+> captures the post-cancellation result.
 
 ## 3. The timeline (six datetimes, strictly ordered)
 

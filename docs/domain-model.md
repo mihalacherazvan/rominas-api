@@ -350,9 +350,12 @@ erDiagram
 | `expires_at` | link expiry (set to the edition's `voting_end_at`) |
 | `submitted_at` | nullable; set when the ballot is cast |
 | `ip_hash` | nullable; HMAC of the submitter IP, captured at submit for `FraudMonitoring` |
+| `invalidation_batch_id` | nullable FK → `InvalidationBatch` (`nullOnDelete`); **non-null = cancelled** (see [FraudMonitoring](#fraudmonitoring)) |
 
-Unique `(edition_id, email_hash)` → **one link, ever, per email per edition**. `belongsTo` Edition;
-`hasMany` rankings. `BallotQueryBuilder` adds `forEdition` / `byEmailHash` / `byTokenHash` / `issued`.
+Unique `(edition_id, email_hash)` → **one link, ever, per email per edition**. `belongsTo` Edition +
+`invalidationBatch`; `hasMany` rankings. `BallotQueryBuilder` adds `forEdition` / `byEmailHash` /
+`byTokenHash` / `issued` / `submitted` / `valid` (not cancelled) / `invalidated`. A ballot counts toward
+Scoring iff `invalidation_batch_id` is null.
 `BallotStatus` is the lifecycle; `VoterHasher` (`Voting/Support/`) is the single pseudonymization helper.
 
 **BallotRanking** — `app/Modules/Voting/Model/BallotRanking.php` — one ranked vote (mirrors
@@ -426,6 +429,40 @@ event (→ `results_published`); see [edition-lifecycle.md](edition-lifecycle.md
 
 ---
 
+## FraudMonitoring
+
+`FraudMonitoring` (`app/Modules/FraudMonitoring/`) lets a **fraud monitor** or **custodian** review an
+edition's public ballots and cancel fraudulent votes. Cancellation is done in **batches**, each carrying
+a single mandatory reason and the acting admin — the batch is the audit unit. Cancelled ballots point
+back at their batch and stop counting toward [Scoring](#behavioural-modules-no-persistent-entities).
+**Invalidation is terminal** (no reversal); the nullable FK leaves room to add one later. Endpoints and
+authorization are in [access-control.md](access-control.md#2h-fraud-monitoring).
+
+```mermaid
+erDiagram
+    EDITION ||--o{ INVALIDATION_BATCH : "scopes"
+    USER ||--o{ INVALIDATION_BATCH : "cancelled by"
+    INVALIDATION_BATCH ||--o{ BALLOT : "cancels"
+```
+
+**InvalidationBatch** — `app/Modules/FraudMonitoring/Model/InvalidationBatch.php` — one vote-cancellation
+event.
+
+| Field | Notes |
+| --- | --- |
+| `edition_id` | FK → Edition (`cascadeOnDelete`) |
+| `reason` | mandatory; the shared reason for every ballot in the batch |
+| `invalidated_by` | nullable FK → User (`nullOnDelete`) — the admin who cancelled; kept for audit even if the user is removed |
+| `created_at` | when the cancellation happened |
+
+`belongsTo` Edition + `invalidatedBy` (User); `hasMany` ballots. `InvalidationBatchQueryBuilder` adds
+`forEdition` + `visibleToUser` / `actionableByUser` (the `fraudMonitoring` permission). Written by
+`InvalidateBallotsAction`, which only affects the edition's **submitted, not-already-invalidated**
+ballots among the requested ids (idempotent), sets each one's `invalidation_batch_id`, and busts the
+edition's cached Scoring output.
+
+---
+
 ## Behavioural modules (no persistent entities)
 
 - **`Auth`** (`app/Modules/Auth/`) — admin username/password login → Sanctum token
@@ -442,7 +479,8 @@ event (→ `results_published`); see [edition-lifecycle.md](edition-lifecycle.md
 - **`Scoring`** (`app/Modules/Scoring/`) — the results engine; **computes on demand, persists nothing**
   (the future `Results` module owns the custodian-gated view/export and the publish-time snapshot). Per
   category it re-tallies each shortlisted nominee's academy points (submitted `NominationRanking`s) and
-  public points (submitted `BallotRanking`s) via the `RankPoints` curve, **normalizes each class to a
+  public points (submitted, **non-cancelled** `BallotRanking`s — `->valid()`, excluding any ballot
+  cancelled by `FraudMonitoring`) via the `RankPoints` curve, **normalizes each class to a
   share of that class's own category total** (so the two scales — dozens of academy members vs. thousands
   of voters — become comparable), then weights by the **edition's own** `academy_vote_weight` /
   `public_vote_weight` (default 60 / 40): `finalScore = 0.6·academyShare + 0.4·publicShare` (0..1).
@@ -462,5 +500,4 @@ Tracked in the ecosystem [`CLAUDE.md`](../../CLAUDE.md); each gets its own secti
 | Module | Planned entities / concern |
 | --- | --- |
 | `CriticsChoice` | `Critic` (separate authenticatable + guard), committee submissions |
-| `FraudMonitoring` | Near-real-time vote monitoring; vote cancellation (reason required, audited) |
 | `Audit` | Audit trail across sensitive actions (greenfield — no `door` template) |

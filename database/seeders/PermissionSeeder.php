@@ -12,8 +12,7 @@ class PermissionSeeder extends Seeder
 {
     /**
      * Resource-level permissions checked by the simple policies. (User/role/permission
-     * management stays super_admin-only for now; the fraud_monitor set arrives with its
-     * Phase 2 module.)
+     * management stays super_admin-only for now.)
      *
      * @var list<string>
      */
@@ -24,6 +23,7 @@ class PermissionSeeder extends Seeder
         'memberProposals',
         'shortlists',
         'results',
+        'fraudMonitoring',
         'artists',
         'bands',
         'venues',
@@ -55,12 +55,24 @@ class PermissionSeeder extends Seeder
     ];
 
     /**
-     * The custodian's extra right: view/export an edition's complete final results before publication.
+     * The custodian's extra rights: view/export an edition's complete final results before publication,
+     * and review/cancel fraudulent public votes.
      *
      * @var list<string>
      */
     private const CUSTODIAN_GRANTS = [
         'results',
+        'fraudMonitoring',
+    ];
+
+    /**
+     * The fraud monitor's sole right: review an edition's public ballots and cancel fraudulent votes.
+     * Shared with the custodian; deliberately NOT granted to `admin`.
+     *
+     * @var list<string>
+     */
+    private const FRAUD_MONITOR_GRANTS = [
+        'fraudMonitoring',
     ];
 
     public function run(): void
@@ -82,6 +94,12 @@ class PermissionSeeder extends Seeder
 
         if ($custodian !== null) {
             $custodian->syncPermissions(self::CUSTODIAN_GRANTS);
+        }
+
+        $fraudMonitor = Role::query()->where('name', 'fraud_monitor')->where('guard_name', 'web')->first();
+
+        if ($fraudMonitor !== null) {
+            $fraudMonitor->syncPermissions(self::FRAUD_MONITOR_GRANTS);
         }
     }
 }

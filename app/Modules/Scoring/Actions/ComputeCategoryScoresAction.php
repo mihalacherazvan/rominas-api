@@ -133,7 +133,7 @@ class ComputeCategoryScoresAction
     private function sumPublicPoints(Edition $edition, Category $category): array
     {
         $picks = BallotRanking::query()
-            ->whereHas('ballot', fn(BallotQueryBuilder $query) => $query->forEdition($edition)->submitted())
+            ->whereHas('ballot', fn(BallotQueryBuilder $query) => $query->forEdition($edition)->submitted()->valid())
             ->where('category_id', '=', $category->id)
             ->get(['nominee_type', 'nominee_id', 'rank'])
             ->map(fn(BallotRanking $ranking): array => [

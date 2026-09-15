@@ -38,4 +38,20 @@ class BallotQueryBuilder extends Builder
     {
         return $this->where('status', '=', BallotStatus::Submitted->value);
     }
+
+    /**
+     * Ballots that count — i.e. have not been cancelled by FraudMonitoring.
+     */
+    public function valid(): self
+    {
+        return $this->whereNull('invalidation_batch_id');
+    }
+
+    /**
+     * Ballots cancelled as part of an invalidation batch.
+     */
+    public function invalidated(): self
+    {
+        return $this->whereNotNull('invalidation_batch_id');
+    }
 }
