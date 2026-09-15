@@ -9,6 +9,7 @@ use Rominas\Categories\Model\Category;
 use Rominas\Editions\Enums\EditionStatus;
 use Rominas\Editions\Model\Edition;
 use Rominas\FraudMonitoring\Actions\DetectVotingFraudAction;
+use Rominas\FraudMonitoring\Detectors\VelocityBurstDetector;
 use Rominas\FraudMonitoring\Enums\FraudAlertStatus;
 use Rominas\FraudMonitoring\Enums\FraudAlertType;
 use Rominas\FraudMonitoring\Model\FraudAlert;
@@ -167,6 +168,23 @@ it('records an identical-ranking alert for byte-identical ballots', function ():
     $alerts = FraudAlert::query()->where('type', FraudAlertType::IdenticalRanking->value)->get();
     expect($alerts)->toHaveCount(1)
         ->and($alerts->first()->ballot_count)->toBe(2);
+});
+
+it('only runs the detectors enabled in config', function (): void {
+    // Enable only the velocity detector; a shared-IP cluster that would otherwise fire is ignored.
+    config([
+        'fraud.enabled_detectors' => [VelocityBurstDetector::class],
+        'fraud.shared_ip.threshold' => 3,
+        'fraud.velocity.threshold' => 100,
+    ]);
+    $edition = Edition::factory()->status(EditionStatus::VotingOpen)->create();
+
+    $ip = hash('sha256', '203.0.113.9');
+    collect(range(1, 3))->each(fn(): Ballot => alertsSeedBallot($edition, $ip));
+
+    app(DetectVotingFraudAction::class)->execute($edition);
+
+    expect(FraudAlert::query()->count())->toBe(0);
 });
 
 it('is idempotent across runs (one alert per signature)', function (): void {

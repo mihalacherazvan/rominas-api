@@ -445,8 +445,10 @@ terminal** (no reversal); the nullable FK leaves room to add one later.
 the edition's submitted, still-valid ballots and records a `FraudAlert` per suspicious cluster. Detectors
 (`FraudMonitoring/Detectors/`): **SharedIp** (N+ ballots sharing one `ip_hash`), **VelocityBurst** (a
 submission spike inside a fixed time window), **IdenticalRanking** (N+ ballots with a byte-identical
-ordered vote set — a bot fingerprint). Thresholds live in `config/fraud.php`. New composite indexes
-`(edition_id, ip_hash)` and `(edition_id, submitted_at)` on `ballots` support the sweep.
+ordered vote set — a bot fingerprint). The enabled set and thresholds live in `config/fraud.php`
+(`enabled_detectors` is injected into `DetectVotingFraudAction` by `AppServiceProvider` — remove one to
+disable it). New composite indexes `(edition_id, ip_hash)` and `(edition_id, submitted_at)` on `ballots`
+support the sweep.
 
 ```mermaid
 erDiagram

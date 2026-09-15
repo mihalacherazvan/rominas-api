@@ -8,24 +8,23 @@ use Illuminate\Support\Facades\DB;
 use Rominas\Editions\Model\Edition;
 use Rominas\FraudMonitoring\DataTransferObjects\AlertCandidate;
 use Rominas\FraudMonitoring\Detectors\FraudDetector;
-use Rominas\FraudMonitoring\Detectors\IdenticalRankingDetector;
-use Rominas\FraudMonitoring\Detectors\SharedIpDetector;
-use Rominas\FraudMonitoring\Detectors\VelocityBurstDetector;
 use Rominas\FraudMonitoring\Enums\FraudAlertStatus;
 use Rominas\FraudMonitoring\Model\FraudAlert;
 
 /**
- * Runs every fraud detector over an edition and records each finding as a FraudAlert. Alerts are deduped
- * by `(edition_id, type, signature)`: a re-detected cluster updates its facts (severity, context,
- * ballot_count, membership, last_detected_at) but its `status` is never overwritten — the human owns
- * triage, so a dismissed/solved alert stays as the monitor set it even if it keeps re-triggering.
+ * Runs every enabled fraud detector over an edition and records each finding as a FraudAlert. The
+ * detector set is `config('fraud.enabled_detectors')`, resolved and injected by AppServiceProvider.
+ * Alerts are deduped by `(edition_id, type, signature)`: a re-detected cluster updates its facts
+ * (severity, context, ballot_count, membership, last_detected_at) but its `status` is never overwritten
+ * — the human owns triage, so a dismissed/solved alert stays as the monitor set it even if it re-triggers.
  */
 class DetectVotingFraudAction
 {
+    /**
+     * @param  list<FraudDetector>  $detectors
+     */
     public function __construct(
-        private readonly SharedIpDetector $sharedIp,
-        private readonly VelocityBurstDetector $velocityBurst,
-        private readonly IdenticalRankingDetector $identicalRanking,
+        private readonly array $detectors,
     ) {}
 
     /**
@@ -35,7 +34,7 @@ class DetectVotingFraudAction
     {
         $touched = 0;
 
-        foreach ($this->detectors() as $detector) {
+        foreach ($this->detectors as $detector) {
             foreach ($detector->detect($edition) as $candidate) {
                 $this->persist($edition, $candidate);
                 $touched++;
@@ -43,14 +42,6 @@ class DetectVotingFraudAction
         }
 
         return $touched;
-    }
-
-    /**
-     * @return list<FraudDetector>
-     */
-    private function detectors(): array
-    {
-        return [$this->sharedIp, $this->velocityBurst, $this->identicalRanking];
     }
 
     private function persist(Edition $edition, AlertCandidate $candidate): void

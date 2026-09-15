@@ -2,7 +2,27 @@
 
 declare(strict_types=1);
 
+use Rominas\FraudMonitoring\Detectors\IdenticalRankingDetector;
+use Rominas\FraudMonitoring\Detectors\SharedIpDetector;
+use Rominas\FraudMonitoring\Detectors\VelocityBurstDetector;
+
 return [
+    /*
+    |--------------------------------------------------------------------------
+    | Enabled detectors
+    |--------------------------------------------------------------------------
+    |
+    | The detectors DetectVotingFraudAction runs, in order. Each is a FraudDetector.
+    | Remove one to disable it (wired into the action in AppServiceProvider).
+    |
+    */
+
+    'enabled_detectors' => [
+        SharedIpDetector::class,
+        VelocityBurstDetector::class,
+        IdenticalRankingDetector::class,
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Fraud detection thresholds

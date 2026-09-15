@@ -21,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDeliveryServices();
         $this->configureScoring();
+        $this->configureFraudMonitoring();
     }
 
     /**
@@ -65,6 +66,28 @@ class AppServiceProvider extends ServiceProvider
         $this->app->when(\Rominas\Scoring\Support\ScoreCalculator::class)
             ->needs('$precision')
             ->give(static fn(): int => (int) config('scoring.precision'));
+    }
+
+    /**
+     * Inject the enabled fraud detectors (config/fraud.php `enabled_detectors`) into the detection
+     * action, in configured order. Removing a detector from the config disables it.
+     */
+    private function configureFraudMonitoring(): void
+    {
+        $this->app->when(\Rominas\FraudMonitoring\Actions\DetectVotingFraudAction::class)
+            ->needs('$detectors')
+            ->give(function (): array {
+                /** @var list<class-string<\Rominas\FraudMonitoring\Detectors\FraudDetector>> $classes */
+                $classes = config('fraud.enabled_detectors', []);
+
+                $detectors = [];
+
+                foreach ($classes as $class) {
+                    $detectors[] = $this->app->make($class);
+                }
+
+                return $detectors;
+            });
     }
 
     /**
