@@ -500,6 +500,57 @@ it does not itself invalidate ballots (that stays the explicit `InvalidateBallot
 
 ---
 
+## Audit (cross-cutting trail)
+
+`app/Modules/Audit/` — a single append-only `AuditLog` recording **who did what**: admin actions, plus
+authentication and account-lifecycle events (admin login/logout, member magic-link request/verify, member
+logout, member proposal withdrawal). Public participation is otherwise self-recording (a ballot carries its
+own state; a nomination its own). One terminable middleware — `RecordAuditTrail` — is the sole writer,
+attached both to the `/admin` group and to the audited auth/account routes.
+
+**AuditLog** — `app/Modules/Audit/Model/AuditLog.php` — one audited request.
+
+| Field | Notes |
+| --- | --- |
+| `causer_type` / `causer_id` | the actor, polymorphic and decoupled — a stable alias (`user` \| `member` \| null) + the model key. Null for an unauthenticated attempt (a failed login, a magic-link request). No FK — the trail outlives the actor |
+| `causer_label` | the actor's name, snapshotted so the row stays legible after the actor is deleted |
+| `action` | the matched **route name** (e.g. `api.admin.editions.transition`, `api.authenticate`) — semantic, no enum |
+| `method` | HTTP verb |
+| `subject_type` / `subject_id` | the route's most specific model binding — its parameter name (`edition`, `proposal`) + key; null for a top-level create or a login |
+| `status_code` | the response status — so denied (403), validation (422) and error (500) outcomes are recorded too |
+| `context` | JSON — the redacted request payload plus any `Context`-supplied extras; **no credentials/tokens, no plaintext PII** (emails redacted, or hashed on auth routes — see below) |
+| `ip_address` | plaintext admin/actor IP (the §6 GDPR exception — kept for forensic accountability, not hashed like voter IPs) |
+| `user_agent` | the request user agent |
+
+`AuditLogQueryBuilder` adds `forCauser` (type + id) / `forAction` / `forSubject` / `betweenDates` +
+`visibleToUser` / `actionableByUser` (the `audit` permission). **Append-only** — no create/update/delete
+endpoints; rows are written only by the middleware.
+
+**How it records** (`RecordAuditTrail::terminate`): logs after the response is sent (no added latency) off
+the final rendered response. Two coverage rules (config/audit.php):
+
+- **Opt-out for `/admin`** — every state-changing request (`POST/PUT/PATCH/DELETE`) is logged unless its
+  route name is in `ignore`; reads only when listed in `audited_reads` (viewing/exporting final results).
+- **Opt-in elsewhere** — only route names in `audited` are logged (the auth + account-lifecycle events).
+
+**Actor resolution** is polymorphic: the authenticated model (admin `User` or academy `Member`, mapped to
+its alias by `causer_types`), or — for a login, where no actor is authenticated during the request — the id
+recovered from the success response body via `actor_from_response` (`userId` / `memberId`). Unauthenticated
+attempts have no actor.
+
+**PII**: payload keys are redacted by the glob patterns in `redact` (credentials, tokens, emails). On the
+auth routes in `hash_emails_on`, the attempted email is instead stored as a non-reversible HMAC
+`email_hash` (`Audit\Support\AuditHasher`, keyed by `audit.pepper`) so an otherwise anonymous login attempt
+stays correlatable without plaintext PII (GDPR §6) — mirroring the Voting module's `VoterHasher`.
+
+An Action can enrich its entry without any dependency by pushing data into Laravel's request `Context` under
+the `audit` key (`Context::add('audit', ['changes' => …])`) — merged into `context`; this is the path to
+richer old→new diffs later, with no middleware change. `InvalidationBatch` / `FraudAlert` remain the domain
+source of truth for cancellations and alerts — the audit log **complements** them with a lightweight
+pointer entry rather than re-storing their detail.
+
+---
+
 ## Behavioural modules (no persistent entities)
 
 - **`Auth`** (`app/Modules/Auth/`) — admin username/password login → Sanctum token
@@ -537,4 +588,3 @@ Tracked in the ecosystem [`CLAUDE.md`](../../CLAUDE.md); each gets its own secti
 | Module | Planned entities / concern |
 | --- | --- |
 | `CriticsChoice` | `Critic` (separate authenticatable + guard), committee submissions |
-| `Audit` | Audit trail across sensitive actions (greenfield — no `door` template) |

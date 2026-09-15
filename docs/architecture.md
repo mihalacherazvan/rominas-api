@@ -60,7 +60,7 @@ an allow-list) and add `actionableByUser()`/`visibleToUser()` for permission sco
 
 | Concern | Location | Pattern |
 | --- | --- | --- |
-| Routes | `routes/api.php` + `routes/api/admin/<x>.php` | admin group `auth:sanctum` + `/admin`; one per-concern file per entity, mounted with `Route::prefix()->group(__DIR__.'/api/admin/x.php')`; `can:` middleware inline |
+| Routes | `routes/api.php` + `routes/api/admin/<x>.php` | admin group `auth:sanctum` + `audit` (the `Audit` middleware `RecordAuditTrail`, aliased in `bootstrap/app.php`; also on the audited auth/academy routes) + `/admin`; one per-concern file per entity, mounted with `Route::prefix()->group(__DIR__.'/api/admin/x.php')`; `can:` middleware inline |
 | Migrations | `database/migrations/` | standard timestamped files |
 | Eloquent factories | `database/factories/` | `class XFactory extends Factory { protected $model = X::class; }` |
 | Seeders | `database/seeders/` | `RoleSeeder`, `PermissionSeeder`, called from `DatabaseSeeder` |

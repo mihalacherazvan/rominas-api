@@ -202,6 +202,27 @@ Alerts are produced by the `fraud:detect` command (scheduled hourly in `routes/c
 scheduler only fires if the OS cron runs `php artisan schedule:run`. See the
 [FraudMonitoring](domain-model.md#fraudmonitoring) domain notes.
 
+## 2i. Audit trail (the `Audit` module)
+
+Read-only access to the audit trail. Authorization is the `audit` permission via `AuditLogPolicy`
+(checked against the `AuditLog` class). **Granted to no role**, so only `super_admin` can read it (via the
+bypass, §5) — audited actors cannot inspect or scrub their own trail. The trail is **append-only**: there
+are no write endpoints; rows are written only by the `audit` middleware (`RecordAuditTrail`), attached to
+the whole `/admin` group (opt-out) and to the audited auth/account routes (opt-in). Beyond admin actions it
+also records **admin login/logout** and **academy member** magic-link request/verify, logout, and proposal
+withdrawal; the actor is polymorphic (`causer_type` `user` \| `member` \| null). On login routes the
+attempted email is stored **hashed**, never plaintext (GDPR §6).
+
+Admin endpoints, under `/api/admin/audit-logs` (Sanctum-guarded):
+
+- `GET /api/admin/audit-logs` (`can:viewAny,AuditLog`) — the trail, newest first, filterable by `causer`,
+  `action`, `subject_type` + `subject_id`, and `from` / `to` date range. Paginated.
+- `GET /api/admin/audit-logs/{auditLog}` (`can:view,auditLog`) — a single entry.
+
+Both routes are listed in `config('audit.ignore')`, so reading the trail records no fresh entries. What is
+and isn't recorded, redaction, and the `Context` enrichment hook are covered in the
+[Audit](domain-model.md#audit-cross-cutting-trail) domain notes.
+
 ## 2. Admin login (the `Auth` module)
 
 `POST /api/authenticate` (`Auth\Controllers\AuthController::authenticate`, `AuthenticateRequest`):
@@ -229,11 +250,12 @@ with the fraud monitor (the `fraudMonitoring` permission; see §2h). **`fraud_mo
 role whose sole right is that same vote review/cancellation.
 
 **Permissions** (`PermissionSeeder`) are resource-named: `editions`, `categories`, `members`,
-`memberProposals`, `shortlists`, `results`, `fraudMonitoring`, `artists`, `bands`, `venues`, `songs`,
-`albums`, `taxonomies`, `taxonomyTerms` (plus `roles`, `permissions`).
-The `admin` role is granted the domain set **except `results` and `fraudMonitoring`**; `custodian` is
-granted `results` + `fraudMonitoring`; `fraud_monitor` is granted `fraudMonitoring`; `super_admin` needs
-none (it bypasses — §5). User/role/permission management is currently `super_admin`-only.
+`memberProposals`, `shortlists`, `results`, `fraudMonitoring`, `audit`, `artists`, `bands`, `venues`,
+`songs`, `albums`, `taxonomies`, `taxonomyTerms` (plus `roles`, `permissions`).
+The `admin` role is granted the domain set **except `results`, `fraudMonitoring` and `audit`**; `custodian`
+is granted `results` + `fraudMonitoring`; `fraud_monitor` is granted `fraudMonitoring`; `audit` is granted
+to **no role**, so only `super_admin` reads the audit trail (it bypasses — §5; see §2i). User/role/permission
+management is currently `super_admin`-only.
 Regenerate/extend the set as modules land.
 
 ## 4. Policies & route authorization

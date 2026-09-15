@@ -18,7 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
         DetectVotingFraudCommand::class,
     ])
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Records an audit-trail entry; attached to the /admin group (opt-out) and to the auth /
+        // account-lifecycle routes it audits by name (opt-in). See config/audit.php.
+        $middleware->alias([
+            'audit' => \Rominas\Audit\Middleware\RecordAuditTrail::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

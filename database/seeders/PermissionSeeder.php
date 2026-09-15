@@ -31,6 +31,9 @@ class PermissionSeeder extends Seeder
         'albums',
         'taxonomies',
         'taxonomyTerms',
+        // Read the audit trail. Deliberately granted to NO role below → super_admin-only (via
+        // Gate::before), so audited actors cannot read or scrub their own trail.
+        'audit',
     ];
 
     /**

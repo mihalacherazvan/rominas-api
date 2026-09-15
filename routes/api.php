@@ -5,22 +5,27 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Route;
 use Rominas\Auth\Controllers\AuthController;
 
-// Admin / management authentication (username + password → Sanctum token).
-Route::post('/authenticate', [AuthController::class, 'authenticate'])->name('api.authenticate');
+// Admin / management authentication (username + password → Sanctum token). Audited (login/logout).
+Route::post('/authenticate', [AuthController::class, 'authenticate'])
+    ->middleware('audit')
+    ->name('api.authenticate');
 
 Route::post('/logout', [AuthController::class, 'logout'])
-    ->middleware('auth:sanctum')
+    ->middleware(['auth:sanctum', 'audit'])
     ->name('api.logout');
 
 // ---------------------------------------------------------------------------
 // Academy member-facing API (passwordless magic-link auth on the `member` guard).
 // ---------------------------------------------------------------------------
-Route::prefix('/academy')->name('api.academy.')->group(__DIR__ . '/api/academy/auth.php');
+// Audited: the magic-link request/verify and member logout (opt-in by route name in config/audit.php).
+Route::middleware('audit')->prefix('/academy')->name('api.academy.')
+    ->group(__DIR__ . '/api/academy/auth.php');
 
 Route::middleware('auth:member')->prefix('/academy')->name('api.academy.')
     ->group(__DIR__ . '/api/academy/nominations.php');
 
-Route::middleware('auth:member')->prefix('/academy')->name('api.academy.')
+// Audited: member proposal withdrawal (opt-in by route name).
+Route::middleware(['auth:member', 'audit'])->prefix('/academy')->name('api.academy.')
     ->group(__DIR__ . '/api/academy/proposals.php');
 
 // ---------------------------------------------------------------------------
@@ -36,7 +41,7 @@ Route::prefix('/results')->name('api.results.')->group(__DIR__ . '/api/results.p
 // ---------------------------------------------------------------------------
 // Admin / management API (Sanctum-guarded, per-concern files under routes/api/admin/).
 // ---------------------------------------------------------------------------
-Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group(function (): void {
+Route::middleware(['auth:sanctum', 'audit'])->prefix('/admin')->name('api.admin.')->group(function (): void {
     Route::prefix('/permissions')->name('permissions.')->group(__DIR__ . '/api/admin/permissions.php');
     Route::prefix('/roles')->name('roles.')->group(__DIR__ . '/api/admin/roles.php');
     Route::prefix('/users')->name('users.')->group(__DIR__ . '/api/admin/users.php');
@@ -56,4 +61,6 @@ Route::middleware(['auth:sanctum'])->prefix('/admin')->name('api.admin.')->group
     Route::prefix('/venues')->name('venues.')->group(__DIR__ . '/api/admin/venues.php');
     Route::prefix('/songs')->name('songs.')->group(__DIR__ . '/api/admin/songs.php');
     Route::prefix('/albums')->name('albums.')->group(__DIR__ . '/api/admin/albums.php');
+
+    Route::prefix('/audit-logs')->name('audit-logs.')->group(__DIR__ . '/api/admin/audit.php');
 });
